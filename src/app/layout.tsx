@@ -19,13 +19,13 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "FinancialOverview",
-  description: "Persoonlijk overzicht van vermogen, inkomsten en uitgaven",
+  description: "Personal overview of wealth, income and expenses",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="nl"
+      lang="en"
       className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full font-sans">
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
         >
-          Naar inhoud
+          Skip to content
         </a>
         <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
           <aside className="shrink-0 border-border md:w-60 md:border-r">

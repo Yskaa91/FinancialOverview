@@ -32,7 +32,9 @@ and `docs/IMPORT-FORMATS.md` before touching a parser.
 - Server Components read the database through `src/lib/queries/*`; mutations are
   Server Actions in a sibling `actions.ts`, validated with Zod before Prisma.
 - Pages that read the database export `const dynamic = "force-dynamic"`.
-- Dutch UI copy, English code and comments.
+- **English only**, everywhere: UI copy, code, comments, commits, docs. No other
+  language in this repo. Identifiers copied verbatim out of a bank file (column
+  names such as `Transactiedatum`) are data, not prose, and stay verbatim.
 - Design tokens live in `src/app/globals.css` (density, colours, focus ring).
   Change them there, not per component. `.vibe/skills/ui-ux-pro-max` is the
   source for style, typography and UX rules — query it before redesigning.

@@ -14,73 +14,73 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle="Vermogen, cashflow en wat aandacht nodig heeft" />
+      <PageHeader title="Dashboard" subtitle="Net worth, cashflow and what needs attention" />
 
       {!hasAccounts && (
         <div className="mb-6">
-          <EmptyState title="Nog geen rekeningen">
-            Voeg je betaal-, spaar-, beleggings- en creditcardrekeningen toe via{" "}
+          <EmptyState title="No accounts yet">
+            Add your checking, savings, brokerage and credit card accounts in{" "}
             <Link href="/accounts" className="underline">
-              Rekeningen
+              Accounts
             </Link>
-            . Daarna kun je ASN-, PayPal- en ICS-bestanden importeren.
+            . After that you can import ASN, PayPal and ICS files.
           </EmptyState>
         </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <Stat label="Netto vermogen" value={formatCents(data.netWorthCents)} large />
+          <Stat label="Net worth" value={formatCents(data.netWorthCents)} large />
         </Card>
         <Card>
           <Stat
-            label="30 dagen"
+            label="Last 30 days"
             value={formatCentsSigned(data.change30dCents)}
             tone={data.change30dCents >= 0 ? "positive" : "negative"}
-            hint="Som van alle rekeningmutaties"
+            hint="Sum of all account movements"
           />
         </Card>
         <Card>
           <Stat
-            label="Inkomsten deze maand"
+            label="Income this month"
             value={formatCents(data.monthIncomeCents)}
             tone="positive"
           />
         </Card>
         <Card>
           <Stat
-            label="Uitgaven deze maand"
+            label="Expenses this month"
             value={formatCents(data.monthExpenseCents)}
             tone="negative"
-            hint={`Netto ${formatCentsSigned(monthNet)}`}
+            hint={`Net ${formatCentsSigned(monthNet)}`}
           />
         </Card>
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <Card title="Bezittingen en schulden">
+        <Card title="Assets and liabilities">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-muted">Bezittingen</dt>
+              <dt className="text-muted">Assets</dt>
               <dd className="tabular">{formatCents(data.assetsCents)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted">Creditcardschuld</dt>
+              <dt className="text-muted">Credit card debt</dt>
               <dd className="tabular">{formatCents(data.liabilitiesCents)}</dd>
             </div>
           </dl>
         </Card>
 
         <Card
-          title="Grootste uitgaven deze maand"
+          title="Largest expenses this month"
           action={
             <Link href="/transactions" className="text-xs text-muted underline">
-              alles
+              all
             </Link>
           }
         >
           {data.topCategories.length === 0 ? (
-            <p className="text-sm text-muted">Nog geen uitgaven in deze maand.</p>
+            <p className="text-sm text-muted">No expenses this month.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {data.topCategories.map((c) => (
@@ -94,26 +94,30 @@ export default async function DashboardPage() {
         </Card>
 
         <Card
-          title="Te categoriseren"
+          title="Needs a category"
           action={
             <Link href="/transactions?review=1" className="text-xs text-muted underline">
-              beoordelen
+              review
             </Link>
           }
         >
           <Stat
-            label="Transacties"
+            label="Transactions"
             value={String(data.uncategorizedCount)}
             tone={data.uncategorizedCount > 0 ? "negative" : "neutral"}
-            hint={data.uncategorizedCount > 0 ? "Kost één klik per merchant" : "Alles is ingedeeld"}
+            hint={
+              data.uncategorizedCount > 0
+                ? "One click per merchant"
+                : "Everything is categorised"
+            }
           />
         </Card>
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <Card title="Rekeningen">
+        <Card title="Accounts">
           {data.accounts.length === 0 ? (
-            <p className="text-sm text-muted">Geen rekeningen.</p>
+            <p className="text-sm text-muted">No accounts.</p>
           ) : (
             <ul className="divide-y divide-border text-[13px]">
               {data.accounts.map((a) => (
@@ -128,9 +132,9 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        <Card title="Laatste transacties">
+        <Card title="Recent transactions">
           {data.recent.length === 0 ? (
-            <p className="text-sm text-muted">Nog niets geïmporteerd.</p>
+            <p className="text-sm text-muted">Nothing imported yet.</p>
           ) : (
             <ul className="divide-y divide-border text-[13px]">
               {data.recent.map((t) => (
@@ -139,7 +143,7 @@ export default async function DashboardPage() {
                     <span className="block truncate">{t.merchant ?? t.description}</span>
                     <span className="block text-xs text-muted">
                       {formatDay(t.bookedAt)} · {t.accountName} ·{" "}
-                      {t.categoryName ?? "niet gecategoriseerd"}
+                      {t.categoryName ?? "uncategorised"}
                     </span>
                   </span>
                   <span

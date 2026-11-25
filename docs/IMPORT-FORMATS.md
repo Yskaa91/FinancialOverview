@@ -5,6 +5,10 @@ documentation), **CODE** (observable in a working open-source parser),
 **COMM** (community reports). Format details that the vendor never published are
 flagged as such, so a future fix knows what is spec and what is observation.
 
+Identifiers quoted from the vendor files — column names, transaction codes,
+status values — are reproduced verbatim in Dutch because they are the literal
+bytes a parser must match. Everything written by us is English.
+
 Rule for every parser: anchor on what is verifiable, version-gate on the header,
 and throw a typed error listing the headers seen instead of silently importing
 garbage.

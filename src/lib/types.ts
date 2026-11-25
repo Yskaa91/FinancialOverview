@@ -29,8 +29,8 @@ export const TRADE_SIDES = ["BUY", "SELL"] as const;
 export type TradeSide = (typeof TRADE_SIDES)[number];
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  CHECKING: "Betaalrekening",
-  SAVINGS: "Spaarrekening",
-  BROKER: "Beleggingsrekening",
-  CREDIT_CARD: "Creditcard",
+  CHECKING: "Checking",
+  SAVINGS: "Savings",
+  BROKER: "Brokerage",
+  CREDIT_CARD: "Credit card",
 };

@@ -266,10 +266,12 @@ all data, guarded by a typed confirmation).
 ## 9. Conventions
 
 - Money enters the system as `number` cents; `lib/money.ts` owns formatting
-  (`Intl.NumberFormat('nl-NL', {currency:'EUR'})`), parsing and fx.
+  (`Intl.NumberFormat('nl-NL', {currency:'EUR'})`), parsing and fx. All copy is
+  English; the `nl-NL` locale is kept for amounts and dates only, because it
+  matches the source statements.
 - Every list query is server-side filtered and paginated (50/page); no client
   data hydration of the whole ledger.
-- Dates: store UTC, render in `Europe/Amsterdam`.
+- Dates: store UTC, render in `Europe/Amsterdam` (`dd-mm-yyyy`).
 - Server Actions validate input with Zod before touching Prisma.
 - Accessibility: interactive rows are keyboard reachable, category picker is a
   combobox with a labelled input, charts have a text summary alternative.

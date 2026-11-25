@@ -15,8 +15,8 @@ export default async function AccountsPage() {
   return (
     <>
       <PageHeader
-        title="Rekeningen"
-        subtitle="Betaal, spaar, beleggen en creditcards op één plek"
+        title="Accounts"
+        subtitle="Checking, savings, brokerage and credit cards in one place"
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -37,13 +37,13 @@ export default async function AccountsPage() {
               <div
                 className={`mt-1 text-sm tabular ${a.change30dCents < 0 ? "text-negative" : "text-positive"}`}
               >
-                {formatCentsSigned(a.change30dCents)} <span className="text-muted">30 dagen</span>
+                {formatCentsSigned(a.change30dCents)} <span className="text-muted">last 30 days</span>
               </div>
             </div>
             <div className="mt-4 flex items-center justify-between text-xs text-muted">
               <span>{a.institution}</span>
               <span>
-                {a.lastImportAt ? `import ${formatDay(a.lastImportAt)}` : "nog niet geïmporteerd"}
+                {a.lastImportAt ? `imported ${formatDay(a.lastImportAt)}` : "not imported yet"}
               </span>
             </div>
           </Card>
@@ -52,14 +52,14 @@ export default async function AccountsPage() {
 
       {accounts.length === 0 && (
         <div className="mb-4">
-          <EmptyState title="Nog geen rekeningen">
-            Voeg eerst een rekening toe, daarna kun je bestanden importeren.
+          <EmptyState title="No accounts yet">
+            Add an account first; after that you can import statement files.
           </EmptyState>
         </div>
       )}
 
       <div className="mt-4">
-        <Card title="Rekening toevoegen">
+        <Card title="Add account">
           <AddAccountForm />
         </Card>
       </div>

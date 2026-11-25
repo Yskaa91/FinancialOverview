@@ -11,44 +11,44 @@ export default async function ImportPage() {
   return (
     <>
       <PageHeader
-        title="Importeren"
-        subtitle="ASN (CSV of CAMT.053), PayPal (CSV), ICS (CSV)"
+        title="Import"
+        subtitle="ASN (CSV or CAMT.053), PayPal (CSV), ICS (CSV)"
       />
 
       {accounts.length === 0 ? (
-        <EmptyState title="Eerst een rekening">
-          Voeg een rekening toe op{" "}
+        <EmptyState title="An account first">
+          Add an account in{" "}
           <Link href="/accounts" className="underline">
-            Rekeningen
+            Accounts
           </Link>{" "}
-          en importeer daarna het afschrift.
+          and then import the statement.
         </EmptyState>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          <Card title="Stap 1 — bestand kiezen">
+          <Card title="Step 1 — choose a file">
             <p className="text-sm text-muted">
-              Kies de rekening en het bestand. De parserkeuze volgt uit de rekening
+              Pick the account and the file. The parser follows from the account
               ({accounts.map((a) => a.institution).filter((v, i, arr) => arr.indexOf(v) === i).join(", ")}).
             </p>
           </Card>
-          <Card title="Stap 2 — controle">
+          <Card title="Step 2 — check">
             <p className="text-sm text-muted">
-              Vóór het opslaan zie je aantal regels, periode, totaalbedrag en hoeveel regels
-              duplicaten zijn. Er wordt nog niets geschreven.
+              Before saving you see the row count, the period, the total amount and how many rows
+              are duplicates. Nothing is written yet.
             </p>
           </Card>
-          <Card title="Stap 3 — verwerken">
+          <Card title="Step 3 — commit">
             <p className="text-sm text-muted">
-              Opslaan in één transactie, daarna categoriseren via merchant-geheugen en regels.
-              Het resultaat toont wat is toegevoegd en wat nog beoordeeld moet worden.
+              Saved in one transaction, then categorised through merchant memory and rules. The
+              result shows what was added and what still needs review.
             </p>
           </Card>
-          <Card title="Nog niet gebouwd">
+          <Card title="Not built yet">
             <p className="text-sm text-muted">
-              De wizard zelf is fase 2 (ASN) en 3 (PayPal, ICS). Zie{" "}
-              <code className="font-mono text-xs">docs/ARCHITECTURE.md</code> §5 en{" "}
-              <code className="font-mono text-xs">docs/IMPORT-FORMATS.md</code> voor de
-              formaatdetails per bron.
+              The wizard itself is phase 2 (ASN) and 3 (PayPal, ICS). See{" "}
+              <code className="font-mono text-xs">docs/ARCHITECTURE.md</code> §5 and{" "}
+              <code className="font-mono text-xs">docs/IMPORT-FORMATS.md</code> for the format
+              details per source.
             </p>
           </Card>
         </div>

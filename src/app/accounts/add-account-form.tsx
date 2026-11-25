@@ -12,12 +12,12 @@ export function AddAccountForm() {
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
       <label className="text-sm">
-        <span className="mb-1 block text-muted">Naam</span>
+        <span className="mb-1 block text-muted">Name</span>
         <input
           name="name"
           required
           maxLength={80}
-          placeholder="ASN Betaalrekening"
+          placeholder="ASN Checking"
           className="w-full rounded-md border border-border bg-background px-3 py-2"
         />
       </label>
@@ -38,7 +38,7 @@ export function AddAccountForm() {
       </label>
 
       <label className="text-sm">
-        <span className="mb-1 block text-muted">Instelling</span>
+        <span className="mb-1 block text-muted">Institution</span>
         <select
           name="institution"
           defaultValue="ASN"
@@ -53,7 +53,7 @@ export function AddAccountForm() {
       </label>
 
       <label className="text-sm">
-        <span className="mb-1 block text-muted">IBAN of kaartnummer (optioneel)</span>
+        <span className="mb-1 block text-muted">IBAN or card number (optional)</span>
         <input
           name="iban"
           maxLength={34}
@@ -63,7 +63,7 @@ export function AddAccountForm() {
       </label>
 
       <label className="text-sm">
-        <span className="mb-1 block text-muted">Beginsaldo (optioneel)</span>
+        <span className="mb-1 block text-muted">Opening balance (optional)</span>
         <input
           name="openingBalance"
           inputMode="decimal"
@@ -78,7 +78,7 @@ export function AddAccountForm() {
           disabled={pending}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
-          {pending ? "Bezig…" : "Rekening toevoegen"}
+          {pending ? "Saving…" : "Add account"}
         </button>
         {state.error && <p className="text-sm text-negative">{state.error}</p>}
       </div>

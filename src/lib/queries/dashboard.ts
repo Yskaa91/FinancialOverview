@@ -61,7 +61,7 @@ export async function getDashboard(): Promise<DashboardData> {
 
   const topCategories = expenseByCategory
     .map((row) => ({
-      name: row.categoryId ? (categoryById.get(row.categoryId)?.name ?? "Onbekend") : "Niet gecategoriseerd",
+      name: row.categoryId ? (categoryById.get(row.categoryId)?.name ?? "Unknown") : "Uncategorised",
       color: row.categoryId ? (categoryById.get(row.categoryId)?.color ?? null) : null,
       totalCents: Math.abs(row._sum.amountCents ?? 0),
     }))

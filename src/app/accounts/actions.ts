@@ -7,7 +7,7 @@ import { parseAmountToCents } from "@/lib/money";
 import { ACCOUNT_TYPES, INSTITUTIONS } from "@/lib/types";
 
 const createAccountSchema = z.object({
-  name: z.string().trim().min(1, "Naam is verplicht").max(80),
+  name: z.string().trim().min(1, "Name is required").max(80),
   type: z.enum(ACCOUNT_TYPES),
   institution: z.enum(INSTITUTIONS),
   iban: z.string().trim().max(34).optional(),
@@ -29,12 +29,12 @@ export async function createAccount(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer" };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
   const { openingBalance, ...rest } = parsed.data;
   const openingBalanceCents = openingBalance ? parseAmountToCents(openingBalance) : 0;
-  if (openingBalanceCents === null) return { error: "Beginsaldo is geen getal" };
+  if (openingBalanceCents === null) return { error: "Opening balance is not a number" };
 
   await prisma.account.create({
     data: {

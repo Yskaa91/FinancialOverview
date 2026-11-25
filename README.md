@@ -1,74 +1,79 @@
 # FinancialOverview
 
-Persoonlijk overzicht van vermogen, inkomsten en uitgaven. Draait lokaal, op
-één machine, met één SQLite-bestand. Imports van ASN, PayPal en ICS, automatische
-categorisatie met regels en (optioneel) AI, en handmatige ETF-posities.
+Personal overview of wealth, income and expenses. Runs locally, on one machine,
+with a single SQLite file. Imports from ASN, PayPal and ICS, automatic
+categorisation with rules and (optionally) AI, and manually tracked ETF positions.
 
-Status: **fase 0** — het skelet staat (stack, databaseschema, vier pagina's,
-geld- en datumlaag, tests). Importers, categorisatie-UI, portefeuille en grafieken
-volgen volgens de fasering in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
+Status: **phase 0** — the skeleton is in place (stack, database schema, four pages,
+money and date layer, tests). Importers, categorisation UI, portfolio and charts
+follow the phases in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
 
-## Snel starten
+## Quick start
 
-Node 20.9 of hoger nodig (Next.js 16 eist dat).
+Node 20.9 or higher is required (Next.js 16 needs it).
 
 ```bash
 npm install
 cp .env.example .env        # DATABASE_URL="file:./dev.db"
-npx prisma migrate deploy   # maakt dev.db en de tabellen
+npx prisma migrate deploy   # creates dev.db and the tables
 npm run dev                 # http://localhost:3000
 ```
 
-Daarna: rekeningen toevoegen op `/accounts`, en importeren via `/import`.
+Then add accounts in `/accounts` and import files through `/import`.
 
-## Commando's
+## Commands
 
-| Commando | Doet |
+| Command | Does |
 |---|---|
-| `npm run dev` | dev-server op localhost:3000 |
-| `npm run build` / `npm start` | productiebuild en -server |
-| `npm test` | Vitest: geld-, datum- en (later) parser- en FIFO-tests |
+| `npm run dev` | dev server on localhost:3000 |
+| `npm run build` / `npm start` | production build and server |
+| `npm test` | Vitest: money and date tests (parsers and FIFO next) |
 | `npm run lint` | ESLint |
-| `npm run db:migrate` | nieuwe migratie na een schemawijziging |
-| `npm run db:studio` | Prisma Studio op dev.db |
-| `npm run db:generate` | Prisma Client opnieuw genereren |
+| `npm run db:migrate` | new migration after a schema change |
+| `npm run db:studio` | Prisma Studio on dev.db |
+| `npm run db:generate` | regenerate Prisma Client |
 
-## Pagina's
+## Pages
 
-| Route | Inhoud |
+| Route | Contents |
 |---|---|
-| `/` | Dashboard: netto vermogen, 30-daagse delta, maandcijfers, grootste categorieën, te categoriseren |
-| `/transactions` | Inkomsten & uitgaven: filteren, zoeken, categoriseren, exporteren |
-| `/accounts` | Rekeningen: saldo per rekening; detailpagina met transacties, imports en (fase 5) portefeuille |
-| `/settings` | Categorieën, regels, merchant-geheugen, AI-status, gegevens |
-| `/import` | Wizard in drie stappen (geen tab, knop in de navigatie) |
+| `/` | Dashboard: net worth, 30-day delta, monthly figures, largest categories, needs a category |
+| `/transactions` | Income & expenses: filter, search, categorise, export |
+| `/accounts` | Accounts: balance per account; detail page with transactions, imports and (phase 5) portfolio |
+| `/settings` | Categories, rules, merchant memory, AI status, data |
+| `/import` | Three-step wizard (not a tab, a button in the navigation) |
 
-## Documentatie
+## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — stack, datamodel, importpijplijn,
-  categorisatielogica, portefeuille, fasering, risico's.
-- [`docs/IMPORT-FORMATS.md`](docs/IMPORT-FORMATS.md) — exacte bestandsformaten van
-  ASN, PayPal en ICS, met bronnen en wat níet gedocumenteerd is.
-- [`docs/TOOLING.md`](docs/TOOLING.md) — project-scoped skills en MCP-servers,
-  en de designbeslissingen die daaruit volgen.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — stack, data model, import
+  pipeline, categorisation logic, portfolio, phases, risks.
+- [`docs/IMPORT-FORMATS.md`](docs/IMPORT-FORMATS.md) — exact ASN, PayPal and ICS
+  file formats, with sources and what is *not* documented.
+- [`docs/TOOLING.md`](docs/TOOLING.md) — project-scoped skills and MCP servers,
+  and the design decisions that follow from them.
 
 ## UI
 
-Dense dashboard: IBM Plex Sans voor tekst, IBM Plex Mono voor bedragen, 12 px
-kaartpadding, 36 px tabelregels, plakkende tabelkoppen, zichtbare focusring en
-een skip-link. Tokens staan in `src/app/globals.css`; wijzig ze daar, niet per
-component. Ontwerpkeuzes zijn herleidbaar in `docs/TOOLING.md`.
+Dense dashboard: IBM Plex Sans for text, IBM Plex Mono for amounts, 12 px card
+padding, 36 px table rows, sticky table headers, visible focus ring and a skip
+link. Tokens live in `src/app/globals.css`; change them there, not per component.
+Design decisions are traceable in `docs/TOOLING.md`.
 
-## Regels die niet mogen breken
+All copy is English. Amounts and dates still render in the Dutch convention
+(€ 1.234,56 and 31-01-2026) because that matches the source statements; the
+formatting lives in `src/lib/money.ts` and `src/lib/dates.ts`.
 
-- Geld is **integer centen**, nooit een float. Zie `src/lib/money.ts`.
-- Imports zijn **idempotent**: `Statement.fileHash` en `Transaction.dedupeHash`
-  voorkomen dubbele inkomsten bij overlappende periodes.
-- Een creditcardrekening heeft een **negatief** saldo; netto vermogen is de som.
-- Er gaat niets naar buiten behalve (optioneel) omschrijving + bedrag naar een
-  AI-provider en tickers naar Stooq. Geen IBAN's, geen rekeningnamen.
-- De app heeft **geen authenticatie** en hoort op `127.0.0.1` te blijven.
+## Rules that must not break
 
-## Databestand
+- Money is **integer cents**, never a float. See `src/lib/money.ts`.
+- Imports are **idempotent**: `Statement.fileHash` and `Transaction.dedupeHash`
+  prevent double income when periods overlap.
+- A credit card account carries a **negative** balance; net worth is the sum.
+- Nothing leaves the machine except (optionally) description + amount to an AI
+  provider and tickers to Stooq. No IBANs, no account names.
+- The app has **no authentication** and is meant to stay on `127.0.0.1`.
 
-`dev.db` staat in de projectroot en is git-ignored. Back-up = bestand kopiëren.
+## Database file
+
+`dev.db` sits in the repository root and is git-ignored. Backing up is copying
+the file.

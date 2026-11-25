@@ -27,15 +27,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   return (
     <>
       <PageHeader
-        title="Inkomsten & uitgaven"
-        subtitle="Filter, categoriseer en controleer elke mutatie"
+        title="Income & expenses"
+        subtitle="Filter, categorise and review every transaction"
       />
 
       <form className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" action="/transactions">
         <input
           name="q"
           defaultValue={filters.q}
-          placeholder="Zoek omschrijving of merchant"
+          placeholder="Search description or merchant"
           className="rounded-md border border-border bg-background px-3 py-2 text-sm lg:col-span-2"
         />
         <select
@@ -43,7 +43,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           defaultValue={filters.accountId ?? ""}
           className="rounded-md border border-border bg-background px-3 py-2 text-sm"
         >
-          <option value="">Alle rekeningen</option>
+          <option value="">All accounts</option>
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
@@ -55,7 +55,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           defaultValue={filters.categoryId ?? ""}
           className="rounded-md border border-border bg-background px-3 py-2 text-sm"
         >
-          <option value="">Alle categorieën</option>
+          <option value="">All categories</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -85,19 +85,19 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </form>
 
       {count === 0 ? (
-        <EmptyState title="Geen transacties in deze selectie">
-          Pas het filter aan, of{" "}
+        <EmptyState title="No transactions in this selection">
+          Change the filter, or{" "}
           <Link href="/import" className="underline">
-            importeer een afschrift
+            import a statement
           </Link>
           .
         </EmptyState>
       ) : (
         <Card
-          title={`${count} transacties`}
+          title={`${count} transactions`}
           action={
             <span className="tabular text-sm text-muted">
-              som {formatCentsSigned(sumCents)}
+              sum {formatCentsSigned(sumCents)}
             </span>
           }
         >
@@ -105,11 +105,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
             <table className="data-table w-full text-sm">
               <thead className="text-[11px]">
                 <tr className="border-b border-border text-left uppercase tracking-wide text-muted">
-                  <th className="py-2 pr-3 font-medium">Datum</th>
-                  <th className="py-2 pr-3 font-medium">Omschrijving</th>
-                  <th className="py-2 pr-3 font-medium">Rekening</th>
-                  <th className="py-2 pr-3 font-medium">Categorie</th>
-                  <th className="py-2 pl-3 text-right font-medium">Bedrag</th>
+                  <th className="py-2 pr-3 font-medium">Date</th>
+                  <th className="py-2 pr-3 font-medium">Description</th>
+                  <th className="py-2 pr-3 font-medium">Account</th>
+                  <th className="py-2 pr-3 font-medium">Category</th>
+                  <th className="py-2 pl-3 text-right font-medium">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -122,7 +122,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                     <td className="py-2 pr-3 text-muted">{t.accountName}</td>
                     <td className="py-2 pr-3">
                       {t.categoryName ?? (
-                        <span className="text-negative">niet gecategoriseerd</span>
+                        <span className="text-negative">uncategorised</span>
                       )}
                     </td>
                     <td
@@ -138,17 +138,17 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
           <div className="mt-4 flex items-center justify-between text-sm text-muted">
             <span>
-              pagina {Math.min(filters.page, pageCount)} van {pageCount}
+              page {Math.min(filters.page, pageCount)} of {pageCount}
             </span>
             <span className="flex gap-3">
               {filters.page > 1 && (
                 <Link href={{ pathname: "/transactions", query: { ...sp, page: filters.page - 1 } }} className="underline">
-                  vorige
+                  previous
                 </Link>
               )}
               {filters.page < pageCount && (
                 <Link href={{ pathname: "/transactions", query: { ...sp, page: filters.page + 1 } }} className="underline">
-                  volgende
+                  next
                 </Link>
               )}
             </span>

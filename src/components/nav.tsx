@@ -12,9 +12,9 @@ import {
 
 const tabs = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Inkomsten & uitgaven", icon: ArrowLeftRight },
-  { href: "/accounts", label: "Rekeningen", icon: Wallet },
-  { href: "/settings", label: "Instellingen", icon: Settings },
+  { href: "/transactions", label: "Income & expenses", icon: ArrowLeftRight },
+  { href: "/accounts", label: "Accounts", icon: Wallet },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Nav() {
@@ -23,7 +23,7 @@ export function Nav() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <nav className="flex flex-col gap-0.5 px-2 pb-4" aria-label="Hoofdnavigatie">
+    <nav className="flex flex-col gap-0.5 px-2 pb-4" aria-label="Main navigation">
       {tabs.map(({ href, label, icon: Icon }) => {
         const active = isActive(href);
         return (
@@ -49,7 +49,7 @@ export function Nav() {
         }`}
       >
         <Upload size={16} aria-hidden strokeWidth={1.8} />
-        Importeren
+        Import
       </Link>
     </nav>
   );

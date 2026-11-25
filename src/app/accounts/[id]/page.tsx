@@ -37,20 +37,20 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <div className="text-xs uppercase tracking-wide text-muted">
-            {account.type === "BROKER" ? "Cash" : "Saldo"}
+            {account.type === "BROKER" ? "Cash" : "Balance"}
           </div>
           <div className="mt-1 text-2xl font-semibold tabular">
             {formatCents(summary?.balanceCents ?? account.openingBalanceCents)}
           </div>
         </Card>
         <Card>
-          <div className="text-xs uppercase tracking-wide text-muted">Beginsaldo</div>
+          <div className="text-xs uppercase tracking-wide text-muted">Opening balance</div>
           <div className="mt-1 text-2xl font-semibold tabular">
             {formatCents(account.openingBalanceCents)}
           </div>
         </Card>
         <Card>
-          <div className="text-xs uppercase tracking-wide text-muted">Laatste import</div>
+          <div className="text-xs uppercase tracking-wide text-muted">Last import</div>
           <div className="mt-1 text-2xl font-semibold tabular">
             {statements[0] ? formatDay(statements[0].importedAt) : "—"}
           </div>
@@ -59,9 +59,9 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
 
       {account.type === "BROKER" && (
         <div className="mt-3">
-          <Card title="Portefeuille">
+          <Card title="Portfolio">
             <p className="text-sm text-muted">
-              Transacties, posities (FIFO) en koersen komen in fase 5. Zie{" "}
+              Trades, positions (FIFO) and prices arrive in phase 5. See{" "}
               <code className="font-mono text-xs">docs/ARCHITECTURE.md</code> §7.
             </p>
           </Card>
@@ -69,9 +69,9 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
       )}
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <Card title="Laatste transacties" className="lg:col-span-2">
+        <Card title="Recent transactions" className="lg:col-span-2">
           {transactions.length === 0 ? (
-            <p className="text-sm text-muted">Nog geen transacties op deze rekening.</p>
+            <p className="text-sm text-muted">No transactions on this account yet.</p>
           ) : (
             <ul className="divide-y divide-border text-sm">
               {transactions.map((t) => (
@@ -79,7 +79,7 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
                   <span className="min-w-0">
                     <span className="block truncate">{t.merchant ?? t.description}</span>
                     <span className="block text-xs text-muted">
-                      {formatDay(t.bookedAt)} · {t.category?.name ?? "niet gecategoriseerd"}
+                      {formatDay(t.bookedAt)} · {t.category?.name ?? "uncategorised"}
                     </span>
                   </span>
                   <span
@@ -96,9 +96,9 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
         <Card title="Imports">
           {statements.length === 0 ? (
             <p className="text-sm text-muted">
-              Nog geen bestanden geïmporteerd.{" "}
+              No files imported yet.{" "}
               <Link href="/import" className="underline">
-                Importeren
+                Import
               </Link>
             </p>
           ) : (
@@ -107,8 +107,8 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
                 <li key={s.id} className="py-2">
                   <div className="truncate">{s.filename}</div>
                   <div className="text-xs text-muted">
-                    {s.source} · {s.importedCount} regels ·{" "}
-                    {s.skippedCount > 0 ? `${s.skippedCount} overgeslagen` : "geen duplicaten"}
+                    {s.source} · {s.importedCount} rows ·{" "}
+                    {s.skippedCount > 0 ? `${s.skippedCount} skipped` : "no duplicates"}
                   </div>
                 </li>
               ))}
