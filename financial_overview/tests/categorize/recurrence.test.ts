@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MIN_HITS_FOR_RULE,
   dominantAmountCents,
+  displayLabel,
   groupLabel,
   isRecurring,
   keyMatchesRow,
@@ -51,6 +52,14 @@ describe("groupLabel", () => {
   it("keeps digits, because the statement's own label is what the user picks from", () => {
     expect(groupLabel({ merchant: "LIDL", description: "LIDL 1234" })).toBe("LIDL");
     expect(groupLabel({ merchant: null, description: "Albert Heijn 1234" })).toBe("Albert Heijn 1234");
+  });
+
+  it("prefers the other party's name for the UI, falling back to merchant then description", () => {
+    expect(displayLabel({ counterparty: "ODIDO NETHERLANDS B.V.", merchant: "EUROPESE INCASSO", description: "Europese incasso: NL-Klant" })).toBe(
+      "ODIDO NETHERLANDS B.V.",
+    );
+    expect(displayLabel({ counterparty: "  ", merchant: "LIDL", description: "LIDL 1234" })).toBe("LIDL");
+    expect(displayLabel({ counterparty: null, merchant: null, description: "Albert Heijn 1234" })).toBe("Albert Heijn 1234");
   });
 
   it("truncates long labels", () => {

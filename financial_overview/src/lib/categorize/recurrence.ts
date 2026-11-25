@@ -67,6 +67,20 @@ export function groupLabel(row: { merchant: string | null; description: string }
   return redactLabel(row.merchant?.trim() || row.description);
 }
 
+/**
+ * What the UI shows for a row: the other party's name reads better than the
+ * merchant guessed from the narrative ("ODIDO NETHERLANDS B.V." over "Europese
+ * incasso"). Display only — `groupLabel` stays the AI-facing text, so no
+ * counterparty name crosses that boundary.
+ */
+export function displayLabel(row: {
+  counterparty?: string | null;
+  merchant: string | null;
+  description: string;
+}): string {
+  return redactLabel(row.counterparty?.trim() || row.merchant?.trim() || row.description);
+}
+
 /** The amount most rows of a group share (first one wins a tie). */
 export function dominantAmountCents(values: number[]): number {
   const counts = new Map<number, number>();

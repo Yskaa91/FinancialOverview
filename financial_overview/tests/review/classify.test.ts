@@ -58,10 +58,21 @@ describe("groupRows", () => {
 
     expect(groups.map((group) => group.key)).toEqual(["LIDL", "FLORIST JANSEN"]);
     const lidl = groups[0];
-    expect(lidl.rows.map((row) => row.index)).toEqual([0, 1]);
-    expect(lidl.rows[0].bookedAt).toBe("2026-03-02");
+    expect(lidl.rows.map((row) => row.index)).toEqual([1, 0]);
+    expect(lidl.rows[0].bookedAt).toBe("2026-03-09");
     expect(lidl.totalCents).toBe(-2500);
     expect(lidl.label).toBe("LIDL");
+  });
+
+  it("orders a group's rows newest first, whatever order the file had", () => {
+    const groups = groupRows([
+      { bookedAt: "2026-01-05", amountCents: -1000, description: "NETFLIX", merchant: "NETFLIX" },
+      { bookedAt: "2026-03-05", amountCents: -1000, description: "NETFLIX", merchant: "NETFLIX" },
+      { bookedAt: "2026-02-05", amountCents: -1000, description: "NETFLIX", merchant: "NETFLIX" },
+    ]);
+    expect(groups[0].rows.map((row) => row.bookedAt)).toEqual(["2026-03-05", "2026-02-05", "2026-01-05"]);
+    // The indexes still point at the original rows, so edits map back.
+    expect(groups[0].rows.map((row) => row.index)).toEqual([1, 2, 0]);
   });
 
   it("sends the dominant amount, not the sum of the group", () => {
@@ -190,7 +201,7 @@ describe("classifyPreview", () => {
     expect(groups[0].sources[0].counterpartyIban).toBe("NL02RABO0987654321");
   });
 
-  it("orders unmatched groups first, then by absolute total", async () => {
+  it("orders groups by their newest booking date, descending", async () => {
     ruleFindMany.mockResolvedValue([{ ...lidlRule, pattern: "BAKERY", categoryId: "cat-bread" }]);
 
     const groups = await classifyPreview([
@@ -199,7 +210,8 @@ describe("classifyPreview", () => {
       { bookedAt: "2026-03-04", amountCents: -200, description: "SHELL", merchant: "SHELL" },
     ]);
 
-    expect(groups.map((group) => group.key)).toEqual(["FLORIST", "SHELL", "BAKERY"]);
+    expect(groups.map((group) => group.key)).toEqual(["SHELL", "FLORIST", "BAKERY"]);
+    // A rule match no longer reorders the table: it only fills the category.
     expect(groups[2].match).not.toBeNull();
   });
 });

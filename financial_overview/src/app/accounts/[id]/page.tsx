@@ -319,7 +319,7 @@ export default async function AccountDetailPage({ params }: PageProps<"/accounts
               {transactions.map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-3 py-2">
                   <span className="min-w-0">
-                    <span className="block truncate">{t.merchant ?? t.description}</span>
+                    <span className="block truncate">{t.counterparty ?? t.merchant ?? t.description}</span>
                     <span className="block text-xs text-muted">
                       {formatDay(t.bookedAt)} · {t.category?.name ?? "uncategorised"}
                     </span>

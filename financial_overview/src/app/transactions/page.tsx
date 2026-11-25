@@ -177,7 +177,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                     <td className="whitespace-nowrap py-2 pr-3 tabular">{formatDay(t.bookedAt)}</td>
                     <td className="max-w-[22rem] py-2 pr-3">
                       <span className="block truncate" title={t.description}>
-                        {t.merchant ?? t.description}
+                        {t.counterparty ?? t.merchant ?? t.description}
                       </span>
                       {t.reviewState === "SUGGESTED" && (
                         <span className="block text-[11px] text-muted">

@@ -5,8 +5,8 @@
 import { prisma } from "@/lib/db";
 import { loadCategoriser, resolveCategory, type RuleLike } from "@/lib/categorize/rules";
 import {
+  displayLabel,
   dominantAmountCents,
-  groupLabel,
   isRecurring,
   loadMerchantHistory,
   merchantKeyOf,
@@ -44,7 +44,7 @@ export function groupRows(rows: PreviewInputRow[]): PreviewGroup[] {
     const key = merchantKeyOf(row);
     const group = groups.get(key) ?? {
       key,
-      label: groupLabel(row),
+      label: displayLabel(row),
       rows: [],
       sources: [],
       totalCents: 0,
@@ -63,6 +63,8 @@ export function groupRows(rows: PreviewInputRow[]): PreviewGroup[] {
   });
 
   for (const group of groups.values()) {
+    // Newest first in the detail table, like the statement the rows came from.
+    group.rows.sort((a, b) => (a.bookedAt === b.bookedAt ? 0 : a.bookedAt < b.bookedAt ? 1 : -1));
     group.amountCents = dominantAmountCents(group.rows.map((row) => row.amountCents));
   }
   return [...groups.values()];
@@ -181,8 +183,10 @@ function groupMatch(
 }
 
 function compareGroups(a: ReviewGroup, b: ReviewGroup): number {
-  const matched = Number(Boolean(a.match)) - Number(Boolean(b.match));
-  if (matched !== 0) return matched;
+  // Newest merchant first, like the statement. The dialog already splits matched
+  // from unmatched, so a tie falls back to the biggest amount and then the name.
+  const newest = (b.rows[0]?.bookedAt ?? "").localeCompare(a.rows[0]?.bookedAt ?? "");
+  if (newest !== 0) return newest;
   const weight = Math.abs(b.totalCents) - Math.abs(a.totalCents);
   return weight !== 0 ? weight : a.key.localeCompare(b.key);
 }
