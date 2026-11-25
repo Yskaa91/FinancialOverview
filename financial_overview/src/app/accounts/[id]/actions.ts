@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { quantityToMicro } from "@/lib/money";
 import { parseAmountToCents } from "@/lib/money";
 import { requireSession } from "@/lib/auth";
+import { refreshStalePrices } from "@/lib/portfolio/quotes";
 
 const tradeSchema = z.object({
   accountId: z.string().min(1),
@@ -64,6 +65,7 @@ export async function addTrade(formData: FormData): Promise<void> {
   });
 
   revalidatePath(`/accounts/${accountId}`);
+  revalidatePath("/portfolio");
   revalidatePath("/");
 }
 
@@ -74,6 +76,7 @@ export async function deleteTrade(formData: FormData): Promise<void> {
   if (typeof id !== "string" || typeof accountId !== "string") return;
   await prisma.trade.delete({ where: { id } });
   revalidatePath(`/accounts/${accountId}`);
+  revalidatePath("/portfolio");
   revalidatePath("/");
 }
 
@@ -106,47 +109,22 @@ export async function setPrice(formData: FormData): Promise<void> {
   });
 
   revalidatePath(`/accounts/${parsed.data.accountId}`);
+  revalidatePath("/portfolio");
   revalidatePath("/");
 }
 
 /**
- * Refreshes quotes from Stooq for the instruments this account holds. Off unless
- * PRICE_FETCH=enabled, so nothing calls out by default.
+ * Manual refresh button. Same fetch as the automatic one on /portfolio, but it
+ * ignores the twelve-hour freshness window.
  */
 export async function refreshPrices(formData: FormData): Promise<void> {
   await requireSession();
   const accountId = formData.get("accountId");
   if (typeof accountId !== "string") return;
-  if ((process.env.PRICE_FETCH ?? "disabled") !== "enabled") return;
 
-  const instruments = await prisma.instrument.findMany({
-    where: { trades: { some: { accountId } } },
-  });
-
-  for (const instrument of instruments) {
-    const ticker = instrument.priceSymbol ?? `${instrument.symbol.toLowerCase()}.nl`;
-    try {
-      const response = await fetch(
-        `https://stooq.com/q/l/?s=${encodeURIComponent(ticker)}&f=sd2t2ohlcv&h&e=csv`,
-        { signal: AbortSignal.timeout(5000), cache: "no-store" },
-      );
-      if (!response.ok) continue;
-      const text = await response.text();
-      const last = text.trim().split("\n").pop()?.split(",");
-      const close = last ? Number(last[6]) : NaN; // Close column in Stooq's CSV
-      if (!Number.isFinite(close) || close <= 0) continue;
-      await prisma.price.create({
-        data: {
-          instrumentId: instrument.id,
-          priceCents: Math.round(close * 100),
-          source: "STOOQ",
-        },
-      });
-    } catch {
-      // A dead price source must never break the page.
-    }
-  }
+  await refreshStalePrices({ accountId, force: true });
 
   revalidatePath(`/accounts/${accountId}`);
+  revalidatePath("/portfolio");
   revalidatePath("/");
 }

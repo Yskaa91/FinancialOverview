@@ -126,3 +126,38 @@ export function positionValueCents(position: Position, priceCents: number): numb
 export function unrealizedCents(position: Position, priceCents: number): number {
   return positionValueCents(position, priceCents) - position.costBasisCents;
 }
+
+/** A trade tagged with the account it sits on, for the cross-account totals. */
+export type AccountTrade = TradeInput & { accountId: string; instrumentId: string };
+
+/**
+ * Value of the open positions per account, priced with `priceByInstrument` and
+ * falling back to the average cost when an instrument has no price yet. One pass
+ * covers every account, which is what the account list and the dashboard need.
+ */
+export function holdingsValueByAccount(
+  trades: AccountTrade[],
+  priceByInstrument: Map<string, number>,
+): Map<string, number> {
+  const byAccount = new Map<string, Map<string, TradeInput[]>>();
+  for (const trade of trades) {
+    const byInstrument = byAccount.get(trade.accountId) ?? new Map<string, TradeInput[]>();
+    const list = byInstrument.get(trade.instrumentId) ?? [];
+    list.push(trade);
+    byInstrument.set(trade.instrumentId, list);
+    byAccount.set(trade.accountId, byInstrument);
+  }
+
+  const valueByAccount = new Map<string, number>();
+  for (const [accountId, byInstrument] of byAccount) {
+    const { positions } = fifo(byInstrument);
+    let valueCents = 0;
+    for (const [instrumentId, position] of positions) {
+      if (position.quantityMicro <= 0) continue;
+      const priceCents = priceByInstrument.get(instrumentId) ?? position.averageCostCents;
+      valueCents += positionValueCents(position, priceCents);
+    }
+    valueByAccount.set(accountId, valueCents);
+  }
+  return valueByAccount;
+}

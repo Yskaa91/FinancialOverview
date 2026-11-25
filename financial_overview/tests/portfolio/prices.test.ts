@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PRICE_TTL_MS, isStale, latestPriceCents } from "@/lib/portfolio/prices";
+import {
+  PRICE_TTL_MS,
+  isStale,
+  latestPriceCents,
+  parseYahooCloseCents,
+  quoteTickers,
+} from "@/lib/portfolio/prices";
 
 describe("latestPriceCents", () => {
   it("returns null when there is no price yet", () => {
@@ -41,5 +47,36 @@ describe("isStale", () => {
   it("is stale at and past the ttl", () => {
     expect(isStale(before(PRICE_TTL_MS), now)).toBe(true);
     expect(isStale(before(PRICE_TTL_MS + 1), now)).toBe(true);
+  });
+});
+
+describe("quoteTickers", () => {
+  it("tries the configured ticker first, then the usual EU venues", () => {
+    expect(quoteTickers("vwce", null)).toEqual(["VWCE.AS", "VWCE.DE", "VWCE"]);
+    expect(quoteTickers("vwce", "vwce.de")).toEqual(["vwce.de", "VWCE.AS", "VWCE.DE", "VWCE"]);
+  });
+
+  it("leaves a symbol that already names its venue alone", () => {
+    expect(quoteTickers("ASML.AS", null)).toEqual(["ASML.AS"]);
+    expect(quoteTickers("", null)).toEqual([]);
+  });
+});
+
+describe("parseYahooCloseCents", () => {
+  it("prefers the market price and keeps it as cents", () => {
+    expect(parseYahooCloseCents({ chart: { result: [{ meta: { regularMarketPrice: 128.44 } }] } })).toBe(12844);
+  });
+
+  it("falls back to the newest non-null close", () => {
+    const payload = {
+      chart: { result: [{ meta: {}, indicators: { quote: [{ close: [127.1, null, 129.9] }] } }] },
+    };
+    expect(parseYahooCloseCents(payload)).toBe(12990);
+  });
+
+  it("returns null for junk, so no price row is written", () => {
+    expect(parseYahooCloseCents(null)).toBeNull();
+    expect(parseYahooCloseCents({ chart: { result: [] } })).toBeNull();
+    expect(parseYahooCloseCents({ chart: { result: [{ meta: { regularMarketPrice: 0 } }] } })).toBeNull();
   });
 });

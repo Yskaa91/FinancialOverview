@@ -28,9 +28,15 @@ const nextConfig = {
     // session cookie here (see docs/ARCHITECTURE.md). 'unsafe-inline' for scripts
     // is the price of that; it still blocks external script origins, framing and
     // base-uri tricks, which is what a LAN tool needs.
+    // Development only: React's debugging features (callstack reconstruction,
+    // Fast Refresh) call eval(). Production never does, so it stays blocked.
+    const scripts =
+      process.env.NODE_ENV === "production"
+        ? "'self' 'unsafe-inline'"
+        : "'self' 'unsafe-inline' 'unsafe-eval'";
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      `script-src ${scripts}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",
       "font-src 'self' data:",

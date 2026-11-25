@@ -135,3 +135,87 @@ export async function getPortfolio(accountId: string): Promise<PortfolioView> {
 export async function listInstruments() {
   return prisma.instrument.findMany({ orderBy: { symbol: "asc" } });
 }
+
+export type PortfolioOverview = {
+  /** Every live account, so a trade can be recorded before an account is a broker. */
+  accounts: { id: string; name: string; type: string }[];
+  /** Known symbols, for the form's datalist. */
+  instruments: { id: string; symbol: string; name: string }[];
+  positions: (HoldingRow & { accountId: string; accountName: string })[];
+  trades: {
+    id: string;
+    accountId: string;
+    accountName: string;
+    side: string;
+    tradedAt: Date;
+    symbol: string;
+    quantityMicro: number;
+    priceCents: number;
+    feeCents: number;
+    note: string | null;
+  }[];
+  holdingsValueCents: number;
+  costBasisCents: number;
+  unrealizedCents: number;
+  realizedCents: number;
+  cashCents: number;
+  totalCents: number;
+};
+
+/**
+ * Every trade and open position in the app, grouped per account by `getPortfolio`
+ * so the numbers come from exactly one place. Accounts without trades are left
+ * out of the totals but still offered in the form.
+ */
+export async function getPortfolioOverview(): Promise<PortfolioOverview> {
+  const [accounts, instruments, tradeCounts] = await Promise.all([
+    prisma.account.findMany({
+      where: { archived: false },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, type: true },
+    }),
+    prisma.instrument.findMany({ orderBy: { symbol: "asc" } }),
+    prisma.trade.groupBy({ by: ["accountId"] }),
+  ]);
+
+  const withTrades = new Set(tradeCounts.map((row) => row.accountId));
+  const views = await Promise.all(
+    accounts
+      .filter((account) => withTrades.has(account.id))
+      .map(async (account) => ({ account, view: await getPortfolio(account.id) })),
+  );
+
+  const positions: PortfolioOverview["positions"] = [];
+  const trades: PortfolioOverview["trades"] = [];
+  let holdingsValueCents = 0;
+  let costBasisCents = 0;
+  let unrealizedCents = 0;
+  let realizedCents = 0;
+  let cashCents = 0;
+
+  for (const { account, view } of views) {
+    positions.push(...view.holdings.map((holding) => ({ ...holding, accountId: account.id, accountName: account.name })));
+    trades.push(...view.trades.map((trade) => ({ ...trade, accountId: account.id, accountName: account.name })));
+    holdingsValueCents += view.holdingsValueCents;
+    costBasisCents += view.costBasisCents;
+    unrealizedCents += view.unrealizedCents;
+    realizedCents += view.realizedCents;
+    cashCents += view.cashCents;
+  }
+
+  positions.sort((a, b) => b.valueCents - a.valueCents);
+  trades.sort((a, b) => b.tradedAt.getTime() - a.tradedAt.getTime());
+
+  return {
+    accounts,
+    instruments: instruments.map(({ id, symbol, name }) => ({ id, symbol, name })),
+    positions,
+    trades,
+    holdingsValueCents,
+    costBasisCents,
+    unrealizedCents,
+    realizedCents,
+    cashCents,
+    totalCents: holdingsValueCents + cashCents,
+  };
+}

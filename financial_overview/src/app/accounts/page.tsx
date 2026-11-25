@@ -47,6 +47,11 @@ export default async function AccountsPage() {
               <div className="mt-3 text-2xl font-semibold tabular">
                 {formatCents(a.balanceCents)}
               </div>
+              {a.holdingsValueCents !== 0 && (
+                <div className="mt-0.5 text-xs text-muted tabular">
+                  includes {formatCents(a.holdingsValueCents)} in holdings
+                </div>
+              )}
               <div
                 className={`mt-1 text-sm tabular ${a.change30dCents < 0 ? "text-negative" : "text-positive"}`}
               >

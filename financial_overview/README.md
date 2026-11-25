@@ -31,7 +31,7 @@ import a statement, which is the point: nothing is invented.
 | `ai_model` | `mistral-small-latest` | Any cheap chat model from the provider. |
 | `ai_max_batches` | `5` | Hard cap on API calls per import review (40 merchants per call). |
 | `min_hits_for_rule` | `3` | Visits within 12 months before a merchant earns a rule. Higher means fewer, more predictable rules. |
-| `price_fetch` | `disabled` | `stooq` refreshes ETF quotes when you open a broker account. |
+| `price_fetch` | `disabled` | `yahoo` refreshes ETF quotes older than 12 hours when you open the portfolio page. |
 
 Only merchant text, a group total and a row count are ever sent to an AI
 provider — never IBANs, account names or balances.
@@ -69,7 +69,7 @@ The app is a normal Next.js project in this folder:
 
 ```bash
 npm ci
-cp .env.example .env.local
+cp .env.example .env
 npm run db:migrate
 npm run dev
 ```

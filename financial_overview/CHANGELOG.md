@@ -1,11 +1,42 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
-- **A new category picks its own colour.** Leaving the colour field empty used to
-  store no colour, which showed up as an identical grey dot for every category in
-  the charts. It now takes a colour from a fixed palette, skipping the ones
-  already in use. Typing a colour still wins.
+Buying and selling by hand, and prices that keep themselves current.
+
+- **A portfolio page.** `/portfolio` records a buy or a sell against any account:
+  symbol (known ones offered, a new one created on the fly), side, date, quantity,
+  price per unit, fee, note. Open positions show quantity, average cost, current
+  price, value and unrealised P/L; the trade log lists every trade across every
+  account with delete; a price can be set by hand per position.
+- **Holdings count in your net worth.** A brokerage account used to report cash
+  only. Its balance, the Accounts page and the dashboard's net worth now include
+  the open positions, FIFO over the trade log, priced with the newest quote and
+  falling back to the average cost.
+- **ETF prices refresh on their own.** With `price_fetch: yahoo`, opening the
+  portfolio page fetches any quote older than twelve hours. Stooq's CSV endpoint
+  now answers with a JavaScript challenge, so the quote source is Yahoo Finance's
+  keyless chart endpoint; `stooq` is still accepted and means the same thing. Only
+  tickers leave the machine. The account page keeps a manual refresh that ignores
+  the twelve-hour window.
+- **ASN statements that carry a header row import again.** A 2026 export labels
+  the same twenty columns and was being sent to the PayPal parser, which answered
+  "no recognisable header row" because the file's prose mentioned "Bruto". The
+  header row is now recognised and skipped, and PayPal is sniffed from its header
+  line alone. Nothing else about the ASN positions changed.
+- **Rows are labelled with the other party.** The import review, `/transactions`
+  and the account page show `Naam`/counterparty ("ODIDO NETHERLANDS B.V.") instead
+  of the merchant guessed from the narrative ("Europese incasso"), and fall back
+  to that guess and then the full description when the field is empty. The stored
+  merchant is untouched, so re-importing the same file stays idempotent, and the
+  AI provider still receives the description-derived label only.
+- **Date order in the import review.** The rows inside a merchant group run newest
+  first, and the merchant table is ordered by its newest booking date instead of
+  by amount, so an import reads like the statement it came from.
+- **Development conveniences.** The Content-Security-Policy allows `eval()` in
+  development, where React needs it, and still refuses it in production. The
+  access password tolerates surrounding whitespace, so a password manager's stray
+  space no longer reads as "Wrong password".
 
 ## 0.3.0
 

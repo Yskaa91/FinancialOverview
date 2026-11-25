@@ -34,7 +34,7 @@ npx prisma studio    # inspect data
 ```
 
 Bound to `127.0.0.1` only. The database file is `dev.db` in the repository root
-(`DATABASE_URL="file:./dev.db"`, git-ignored). `.env.local` holds `DATABASE_URL`
+(`DATABASE_URL="file:./dev.db"`, git-ignored). `.env` holds `DATABASE_URL`
 and optional AI keys; `.env.example` is the committed template.
 
 Prisma 7 specifics: the connection URL lives in `prisma.config.ts` (which loads
@@ -374,10 +374,18 @@ visible before anything is written, and the footer count follows the decisions.
   on recent trades; a delete is a hard delete only for rows with no later sell.
 - `fifo()` returns per instrument: quantity, average cost, total cost, realized
   P/L (from the sell legs), and the open lots. Pure function, unit tested.
-- Value = `quantity × latest price`. Price comes from the newest `Price` row;
-  `lib/portfolio/prices.ts` refreshes from Stooq (free, no key) when the price
-  is older than 12 hours and `PRICE_FETCH=enabled`, otherwise manual entry.
-- Account balance for a broker = cash snapshot + sum of position values.
+- Value = `quantity × latest price`. Price comes from the newest `Price` row.
+  With `PRICE_FETCH` on, `lib/portfolio/quotes.ts` refreshes every instrument
+  someone holds from Yahoo Finance's keyless chart endpoint (`SYMBOL.AS`, then
+  `SYMBOL.DE`, then the symbol as typed, or `Instrument.priceSymbol` first), but
+  only when the newest row is older than 12 hours. `/portfolio` does that on
+  open; the account page button ignores the window. Stooq was the source until
+  its CSV endpoint started answering with a JavaScript challenge, so `stooq`
+  stays an accepted `price_fetch` value and means the same thing.
+- Account balance for a broker = cash snapshot + sum of position values. The
+  same number feeds the account cards and `getDashboard().netWorthCents`, via
+  `holdingsValueByAccount()` — one FIFO pass over every broker's trades, priced
+  with the newest `Price` row and falling back to the average cost.
 - Net worth history: bank and savings accounts derive a balance per day from
   transactions; broker and manual accounts use `Snapshot` rows, forward-filled.
   The dashboard draws the merged series.
@@ -400,6 +408,12 @@ sparkline, last import date; add/edit/archive; totals row. Broker card opens
 `/accounts/[id]`: holdings table (instrument, quantity, avg cost, price, value,
 unrealised P/L, share of account), trade log with add-buy/add-sell dialog,
 realised P/L total, manual price entry, price refresh.
+
+**Portfolio `/portfolio`** — every trade and open position in one place: record a
+buy or sell against any account (symbol, side, date, quantity, price, fee, note),
+delete a trade, set a price by hand, and read holdings value, unrealised P/L,
+realised P/L and cash for the whole app. Numbers come from `getPortfolio()` per
+account, so this page and `/accounts/[id]` can never disagree.
 
 **Settings `/settings`** — categories CRUD (two-level), rules CRUD with a test
 preview ("matches 14 existing transactions"), merchant map browser with
@@ -458,7 +472,9 @@ start in that case.
 - `headers()` sets CSP, `X-Frame-Options: DENY` (the destructive buttons are one
   click away), `nosniff`, `no-referrer` and a restrictive `Permissions-Policy`.
   The CSP allows `'unsafe-inline'` for scripts because a nonce needs middleware;
-  it still blocks foreign script origins and framing.
+  it still blocks foreign script origins and framing. `'unsafe-eval'` is added in
+  development only, where React calls `eval()` for callstack reconstruction and
+  Fast Refresh; the production header stays without it.
 - Server Action bodies are capped at 12 MB (`experimental.serverActions
   .bodySizeLimit`) so the app's own 5 MB statement check is reachable — the
   framework default of 1 MB rejected real statements first, with a bare 413.

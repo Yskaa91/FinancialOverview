@@ -2,17 +2,19 @@
 # Nothing here is global: skills live in .vibe/skills/, MCP servers here.
 #
 # `npx` must be on PATH (this repo's Node install is at ~/.local/bin).
+# `--prefer-offline` lets a server start from the npx cache, so a DNS or registry
+# hiccup at session start no longer drops the server for the whole session.
 
 [[mcp_servers]]
 name = "context7"
 transport = "stdio"
 command = "npx"
-args = ["-y", "@upstash/context7-mcp@4.8.0"]
+args = ["--prefer-offline", "-y", "@upstash/context7-mcp@4.8.0"]
 prompt = "Version-current docs for Next.js, Prisma, Recharts, shadcn. Use before writing code against an unfamiliar API."
 
 [[mcp_servers]]
 name = "shadcn"
 transport = "stdio"
 command = "npx"
-args = ["-y", "shadcn@4.23.0", "mcp"]
+args = ["--prefer-offline", "-y", "shadcn@4.23.0", "mcp"]
 prompt = "Search and install shadcn/ui components from the registry for this project."
