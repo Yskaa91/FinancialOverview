@@ -8,6 +8,8 @@ import {
   categoriseUncategorised,
   confirmCategory,
 } from "@/lib/categorize/rules";
+import { isAiConfigured, suggestCategoriesForUncategorised } from "@/lib/categorize/ai";
+import { redirect } from "next/navigation";
 
 const setSchema = z.object({
   transactionId: z.string().min(1),
@@ -55,4 +57,19 @@ export async function markAsTransfer(formData: FormData): Promise<void> {
   });
   revalidatePath("/transactions");
   revalidatePath("/");
+}
+
+/**
+ * Asks the AI provider for suggestions on rows without a category. Suggestions
+ * arrive as SUGGESTED, so this button never changes a category on its own.
+ */
+export async function suggestWithAi(): Promise<void> {
+  if (!isAiConfigured()) redirect("/transactions?ai=off");
+
+  const run = await suggestCategoriesForUncategorised();
+  revalidatePath("/transactions");
+  revalidatePath("/");
+  redirect(
+    `/transactions?review=1&suggested=${run.suggested}&cached=${run.fromCache}&calls=${run.calls}${run.error ? `&aiError=${run.error}` : ""}`,
+  );
 }

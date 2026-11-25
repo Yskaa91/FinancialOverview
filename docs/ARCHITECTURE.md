@@ -214,13 +214,29 @@ upserts `MerchantMap` and offers "apply to all N similar" as one button
 (bulk update of existing rows with the same key). Nothing is auto-applied
 retroactively without that click.
 
-AI layer (`lib/categorize/ai.ts`): one provider adapter interface
-(`suggestCategory(batch): {id, categoryId, confidence}[]`), implemented for an
-OpenAI-compatible endpoint and Mistral, chosen by `AI_PROVIDER`. Batches of 40
-transactions, category list in the system prompt, strict JSON schema out,
-validated with Zod and dropped on any parse failure. Cost guard: skip rows that
-already have a merchant-map hit, cap batch size, log call count. The app is
-fully functional with `AI_PROVIDER=none`.
+AI layer (`lib/categorize/ai.ts`): Mistral chat completions
+(`ai/v1/chat/completions`), so any OpenAI-shaped endpoint works by changing the
+base URL. Written for cheap models, because per-row cost is what decides whether
+this feature is worth having:
+
+- **Prompt**: one system line plus one line per transaction. Categories are
+  sent as numbers (`1=Groceries; 2=Rent`), answers are numbers, `0` means
+  unsure. A 40-row batch is a few hundred tokens, not a few thousand.
+- **Output**: `response_format: json_object`, `temperature: 0`, so the reply is
+  `{"r":[{"i":1,"c":2}]}`. The reader tolerates fences, a bare array and
+  trailing commas, and drops out-of-range entries instead of guessing.
+- **Guards**: batches of 40, `AI_MAX_BATCHES` (default 5) calls per run, and a
+  20-second timeout. Only merchant text and amounts are sent — never IBANs,
+  account names or balances.
+- **Cache**: a suggestion is remembered per merchant in `MerchantMap` with
+  `source = "AI"`. Those entries fill later suggestions for free but are
+  excluded from the rule engine, so a cached guess never applies itself.
+- **Semantics**: everything lands as `reviewState = SUGGESTED` with
+  `categorySource = AI`. Confirming it writes a `MANUAL` merchant entry; running
+  the rules afterwards can still overwrite a suggestion, because rules rank
+  above AI.
+
+The app is fully functional with `AI_PROVIDER=none`.
 
 ## 7. Portfolio and valuation
 

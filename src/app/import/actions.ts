@@ -14,6 +14,7 @@ import {
 } from "@/lib/import";
 import { dedupeHash } from "@/lib/import/normalize";
 import { categoriseUncategorised } from "@/lib/categorize/rules";
+import { isAiConfigured, suggestCategoriesForUncategorised } from "@/lib/categorize/ai";
 import { STATEMENT_SOURCES, type StatementSource } from "@/lib/types";
 
 // One preview at a time (single user, single machine). The parsed rows wait in
@@ -195,6 +196,16 @@ export async function commitPreview(): Promise<void> {
 
   await prisma.setting.delete({ where: { key: PREVIEW_KEY } });
   await categoriseUncategorised();
+
+  // Suggestions only, and only when a provider is configured: a broken AI call
+  // must never fail an import that already committed.
+  if (isAiConfigured()) {
+    try {
+      await suggestCategoriesForUncategorised(80);
+    } catch {
+      // ignore: the rows stay uncategorised and the review queue still shows them
+    }
+  }
 
   revalidatePath("/import");
   revalidatePath("/transactions");

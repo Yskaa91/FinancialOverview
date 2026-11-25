@@ -85,7 +85,9 @@ export function resolveCategory(
 export async function loadCategoriser() {
   const [rules, merchants] = await Promise.all([
     prisma.rule.findMany({ where: { enabled: true } }),
-    prisma.merchantMap.findMany(),
+    // source "AI" entries are proposals, not decisions: they may fill a
+    // suggestion but never apply a category on their own.
+    prisma.merchantMap.findMany({ where: { NOT: { source: "AI" } } }),
   ]);
   return {
     rules: rules as RuleLike[],

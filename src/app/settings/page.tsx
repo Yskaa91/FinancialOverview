@@ -1,6 +1,7 @@
 import { Card, PageHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { CATEGORY_KINDS, RULE_MATCH_ON, RULE_OPERATORS, ACCOUNT_TYPE_LABELS } from "@/lib/types";
+import { ACCOUNT_TYPE_LABELS, CATEGORY_KINDS, RULE_MATCH_ON, RULE_OPERATORS } from "@/lib/types";
+import { AI_MAX_BATCHES, AI_MODEL, isAiConfigured } from "@/lib/categorize/ai";
 import {
   createCategory,
   createRule,
@@ -29,6 +30,8 @@ export default async function SettingsPage() {
   const usageBy = new Map(usage.map((u) => [u.categoryId, u._count._all]));
 
   const aiProvider = process.env.AI_PROVIDER ?? "none";
+  const aiKeyPresent = Boolean(process.env.AI_API_KEY);
+  const aiOn = isAiConfigured();
   const priceFetch = process.env.PRICE_FETCH ?? "disabled";
 
   return (
@@ -246,8 +249,24 @@ export default async function SettingsPage() {
         <Card title="Automatic categorisation">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-muted">AI provider</dt>
+              <dt className="text-muted">AI suggestions</dt>
+              <dd className={aiOn ? "text-positive" : "text-muted"}>{aiOn ? "on" : "off"}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted">Provider</dt>
               <dd className="font-mono text-xs">{aiProvider}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted">Model</dt>
+              <dd className="font-mono text-xs">{AI_MODEL}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted">API key</dt>
+              <dd className="font-mono text-xs">{aiKeyPresent ? "set" : "missing"}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted">Max calls per run</dt>
+              <dd className="tabular">{AI_MAX_BATCHES}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted">Price refresh</dt>
@@ -259,11 +278,10 @@ export default async function SettingsPage() {
             </div>
           </dl>
           <p className="mt-3 text-xs text-muted">
-            Set <code className="font-mono">AI_PROVIDER</code> and{" "}
-            <code className="font-mono">AI_API_KEY</code> in{" "}
-            <code className="font-mono">.env.local</code> to have uncategorised rows proposed
-            automatically. Without a provider the app works fully on rules and manual corrections.
-            IBANs and account names never leave the machine.
+            {aiOn
+              ? "Uncategorised rows get a suggestion after an import and from the review queue's AI button. A suggestion is never applied without a click; confirming one teaches the merchant, which then costs no further calls."
+              : "Add AI_PROVIDER=mistral and AI_API_KEY to .env.local to get suggestions. Without it the app works fully on rules and manual corrections."}{" "}
+            Only merchant text and amounts are sent; never IBANs, account names or balances.
           </p>
         </Card>
 

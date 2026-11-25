@@ -5,7 +5,8 @@ import { formatDay } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
 import { listCategories, listTransactions } from "@/lib/queries/transactions";
 import { CategoryPicker } from "./category-picker";
-import { runRules } from "./actions";
+import { runRules, suggestWithAi } from "./actions";
+import { AI_MODEL, isAiConfigured } from "@/lib/categorize/ai";
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const sp = await searchParams;
@@ -54,10 +55,31 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
             Run rules on uncategorised
           </button>
         </form>
+        {isAiConfigured() && (
+          <form action={suggestWithAi}>
+            <button
+              type="submit"
+              className="rounded-md border border-border px-2.5 py-1.5 text-muted hover:bg-surface-muted"
+              title={`Asks ${AI_MODEL} for suggestions; nothing is applied without your click`}
+            >
+              Suggest with AI
+            </button>
+          </form>
+        )}
         <span className="text-xs text-muted">
           Picking a category saves immediately and remembers the merchant.
         </span>
       </div>
+
+      {(first(sp.suggested) || first(sp.ai) || first(sp.aiError)) && (
+        <div className="mb-3 rounded-md border border-border bg-surface-muted px-3 py-2 text-sm">
+          {first(sp.ai) === "off"
+            ? "AI is off. Set AI_PROVIDER=mistral and AI_API_KEY in .env.local, then restart the server."
+            : first(sp.aiError)
+              ? `AI request failed (${first(sp.aiError)}). Nothing was changed; rows stay in the queue.`
+              : `${first(sp.suggested) ?? 0} suggestions added, ${first(sp.cached) ?? 0} from merchant memory, ${first(sp.calls) ?? 0} API calls. Confirm them below — suggested is not applied.`}
+        </div>
+      )}
 
       <form className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" action="/transactions">
         {review && <input type="hidden" name="review" value="1" />}

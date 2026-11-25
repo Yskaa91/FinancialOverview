@@ -67,6 +67,23 @@ padding, 36 px table rows, sticky table headers, visible focus ring and a skip
 link. Tokens live in `src/app/globals.css`; change them there, not per component.
 Design decisions are traceable in `docs/TOOLING.md`.
 
+## AI category suggestions
+
+Optional, off by default. Rules and manual corrections are the primary path.
+
+```bash
+# .env.local
+AI_PROVIDER=mistral
+AI_API_KEY=your-key
+AI_MODEL=mistral-small-latest   # any cheap chat model
+AI_MAX_BATCHES=5                # 5 calls x 40 transactions per run
+```
+
+With that set, uncategorised rows get a suggestion after every import, and the
+review queue has a "Suggest with AI" button. A suggestion is **never applied
+without a click**; confirming one teaches the merchant, so the same shop costs
+no further calls. Only merchant text and amounts leave the machine.
+
 All copy is English. Amounts and dates still render in the Dutch convention
 (€ 1.234,56 and 31-01-2026) because that matches the source statements; the
 formatting lives in `src/lib/money.ts` and `src/lib/dates.ts`.
