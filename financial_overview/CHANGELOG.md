@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.0
+
+Managing what you already configured. Everything you can create, you can now
+correct, and nothing gets deleted without telling you what it costs.
+
+- **Edit accounts.** Name, type, institution, IBAN or card number and opening
+  balance — the same fields as creation, prefilled, in a dialog.
+- **Archive instead of hiding.** Archived accounts stay visible with a badge and a
+  Restore action; before this they disappeared from the page for good.
+- **Delete shows the impact first.** An account's deletion lists the transactions,
+  statements, trades, price snapshots and rules that go with it, plus the balance
+  leaving net worth, and stays disabled until you tick "I understand".
+- **Edit categories.** Name, kind, colour and parent, prefilled from the creation
+  form; a subcategory can be moved or promoted.
+- **Deleting a category explains the cascade** instead of silently refusing when it
+  is in use: transactions survive without a category, subcategories move up to the
+  top level, rules and merchant memory are removed.
+- **Guards.** The built-in Transfers category keeps its name and kind (transfers are
+  classified by name, so a rename would create a second one and turn every transfer
+  back into income). A category with subcategories cannot change kind, which would
+  otherwise leave an income parent holding expense children.
+- Both deletions require an explicit confirmation, checked on the server, so a
+  stray submit destroys nothing.
+
 ## 0.2.0
 
 Security and access control. **This release asks for a password**: set the new
