@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import {
   ArrowLeftRight,
+  House,
   LineChart,
   LayoutDashboard,
   Settings,
@@ -18,6 +19,7 @@ const tabs = [
   { href: "/transactions", label: "Income & expenses", icon: ArrowLeftRight },
   { href: "/accounts", label: "Accounts", icon: Wallet },
   { href: "/portfolio", label: "Portfolio", icon: LineChart },
+  { href: "/property", label: "Real estate", icon: House },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

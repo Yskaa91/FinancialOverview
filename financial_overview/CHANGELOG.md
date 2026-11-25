@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0
+
+- **Real estate.** A new tab adds a home with its address, municipality, purchase
+  price and purchase date, and tracks an approximate value from the CBS
+  house-price index of that municipality: purchase quarter to the newest quarter,
+  refreshed once a day. The page shows what was paid, the estimate and the change,
+  with the index figures behind it. The total counts as an asset in net worth, and
+  a card on the dashboard splits it out.
+- Only the municipality name or code goes to CBS — the address never leaves the
+  machine. Estimates follow the regional average, so treat them as an indication,
+  not a valuation.
+- Existing installs get the new `Property` table through the bundled migration on
+  start; nothing else changes.
+
 ## 0.4.1
 
 - **Holdings identified by ISIN get prices.** A fund entered as `IE00BD4TXV59`

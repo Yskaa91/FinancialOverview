@@ -190,6 +190,29 @@ model Trade {
   @@index([accountId, instrumentId, tradedAt])
 }
 
+// A home someone owns. Value is never typed in: it follows the CBS regional
+// price index from the purchase date to the newest quarter.
+model Property {
+  id                  String    @id @default(cuid())
+  label               String?
+  address             String
+  // CBS region ("GM0363" for Amsterdam) plus the name it had when it was added
+  regionCode          String
+  regionName          String
+  purchasePriceCents  Int
+  purchasedAt         DateTime
+  estimatedValueCents Int?
+  // Index values are x 1e6 (2020 = 100), so 135.4 is stored as 135400000
+  indexAtPurchaseMicro Int?
+  indexLatestMicro     Int?
+  indexPeriod          String?
+  valueFetchedAt       DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([regionCode])
+}
+
 model Price {
   id           String   @id @default(cuid())
   instrumentId String

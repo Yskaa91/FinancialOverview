@@ -2,11 +2,14 @@ import { prisma } from "@/lib/db";
 import { notTransfer } from "./filters";
 import { currentMonthRange, daysAgo } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
+import { propertyTotalCents } from "@/lib/queries/property";
 
 export type DashboardData = {
   netWorthCents: number;
   assetsCents: number;
   liabilitiesCents: number;
+  /** Estimated value of the homes; part of assets and net worth, not of an account. */
+  propertyCents: number;
   change30dCents: number;
   monthIncomeCents: number;
   monthExpenseCents: number;
@@ -27,6 +30,7 @@ export type DashboardData = {
 export async function getDashboard(): Promise<DashboardData> {
   const { start, end } = currentMonthRange();
   const accounts = await listAccounts();
+  const propertyCents = await propertyTotalCents();
 
   const [monthIncome, monthExpense, uncategorized, expenseByCategory, recent] =
     await Promise.all([
@@ -69,9 +73,10 @@ export async function getDashboard(): Promise<DashboardData> {
     .sort((a, b) => b.totalCents - a.totalCents)
     .slice(0, 6);
 
-  const assetsCents = accounts
-    .filter((a) => a.type !== "CREDIT_CARD")
-    .reduce((sum, a) => sum + a.balanceCents, 0);
+  const assetsCents =
+    accounts
+      .filter((a) => a.type !== "CREDIT_CARD")
+      .reduce((sum, a) => sum + a.balanceCents, 0) + propertyCents;
   const liabilitiesCents = accounts
     .filter((a) => a.type === "CREDIT_CARD")
     .reduce((sum, a) => sum + a.balanceCents, 0);
@@ -79,6 +84,7 @@ export async function getDashboard(): Promise<DashboardData> {
   return {
     netWorthCents: assetsCents + liabilitiesCents,
     assetsCents,
+    propertyCents,
     liabilitiesCents,
     change30dCents: accounts.reduce((sum, a) => sum + a.change30dCents, 0),
     monthIncomeCents: monthIncome._sum.amountCents ?? 0,

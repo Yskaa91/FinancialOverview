@@ -168,7 +168,12 @@ Instrument     id, symbol, isin?, name, kind(ETF|STOCK|BOND|CASH),
 Trade          id, accountId, instrumentId, side(BUY|SELL), tradedAt,
                quantityMicro, priceCents, feeCents, currency, note?
                -- positions are derived; never stored
-Price          id, instrumentId, fetchedAt, priceCents, source(MANUAL|STOOQ)
+Property       id, label?, address, regionCode(CBS RegioS, e.g. GM0363),
+               regionName, purchasePriceCents, purchasedAt,
+               estimatedValueCents?, indexAtPurchaseMicro?, indexLatestMicro?,
+               indexPeriod?, valueFetchedAt?
+               -- value follows the regional index; never typed in
+Price          id, instrumentId, fetchedAt, priceCents, source(MANUAL|STOOQ|YAHOO)
 Snapshot       id, accountId, takenAt, balanceCents, source(IMPORT|MANUAL)
 Setting        key PRIMARY KEY, valueJson
 ```
@@ -188,6 +193,13 @@ Key decisions:
 - **Balance truth order.** Latest statement `balanceAfterCents` → opening
   balance plus transaction sum → manual `Snapshot`. Broker accounts use cash
   snapshot plus holdings value.
+- **A home is not an account.** `Property` stands on its own and is added to
+  assets and net worth by the dashboard query, so it never shows up in the
+  accounts list or in the import flow. Its value is an estimate: the purchase
+  price moved by the CBS price index of its municipality (table `85792NED`,
+  2020 = 100), from the purchase quarter to the newest one. Only the municipality
+  name or code is sent to CBS; the address stays local. Half a year of drift is
+  expected — a single address is not a municipality average.
 
 ## 5. Import pipeline
 
@@ -418,6 +430,12 @@ delete a trade, set a price by hand, and read holdings value, unrealised P/L,
 realised P/L and cash for the whole app. Numbers come from `getPortfolio()` per
 account, so this page and `/accounts/[id]` can never disagree.
 
+**Real estate `/property`** — add a home (address, municipality, purchase price
+and date), see the estimated value, what was paid and the change, with the index
+figures it came from; delete a home and refresh the index on demand. The estimate
+refreshes at most once a day when the page opens, and the total joins net worth
+on the dashboard.
+
 **Settings `/settings`** — categories CRUD (two-level), rules CRUD with a test
 preview ("matches 14 existing transactions"), merchant map browser with
 override, AI provider and key status (never echoes the key), base currency and
@@ -469,6 +487,14 @@ Known limits, stated plainly: the cookie is not `Secure` (the add-on is reached
 over plain HTTP on a LAN), there is no lockout table (one account, so the delay is
 the control), and no password means no protection — the add-on logs a warning on
 start in that case.
+
+### Outbound calls
+
+Only three things leave the machine, each through a switch that is off by
+default: share tickers to Yahoo Finance (share prices), a municipality name or
+CBS region code to CBS StatLine (house-price index), and merchant text, group
+totals and row counts to the configured AI provider (category suggestions). The
+house address, account names, IBANs and balances never do.
 
 ### Request handling
 

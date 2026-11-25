@@ -92,6 +92,12 @@ export default async function DashboardPage() {
               <dt className="text-muted">Assets</dt>
               <dd className="tabular">{formatCents(data.assetsCents)}</dd>
             </div>
+            {data.propertyCents > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted">of which real estate</dt>
+                <dd className="tabular">{formatCents(data.propertyCents)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-muted">Credit card debt</dt>
               <dd className="tabular">{formatCents(data.liabilitiesCents)}</dd>
