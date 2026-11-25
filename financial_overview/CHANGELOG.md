@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **A new category picks its own colour.** Leaving the colour field empty used to
+  store no colour, which showed up as an identical grey dot for every category in
+  the charts. It now takes a colour from a fixed palette, skipping the ones
+  already in use. Typing a colour still wins.
+
 ## 0.3.0
 
 Managing what you already configured. Everything you can create, you can now

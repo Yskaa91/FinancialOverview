@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { CATEGORY_KINDS, RULE_MATCH_ON, RULE_OPERATORS } from "@/lib/types";
 import { requireSession } from "@/lib/auth";
 import { isSafePattern, MAX_PATTERN_LENGTH } from "@/lib/categorize/rules";
+import { pickCategoryColor } from "@/lib/colors";
 
 export type CategoryFormState = { error?: string };
 
@@ -35,11 +36,18 @@ export async function createCategory(formData: FormData): Promise<void> {
   });
   if (existing) return;
 
+  // No colour typed: pick one from the palette that this ledger is not using yet,
+  // so a new category is visually distinct in the charts without the user having
+  // to think about hex codes.
+  const existingColours = parsed.data.color
+    ? []
+    : (await prisma.category.findMany({ select: { color: true } })).map((c) => c.color);
+
   await prisma.category.create({
     data: {
       name: parsed.data.name,
       kind: parsed.data.kind,
-      color: parsed.data.color ?? null,
+      color: parsed.data.color ?? pickCategoryColor(existingColours),
       parentId: typeof parentId === "string" && parentId ? parentId : null,
     },
   });

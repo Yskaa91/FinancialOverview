@@ -57,8 +57,8 @@ export default async function SettingsPage() {
             </select>
             <input
               name="color"
-              placeholder="#22c55e"
-              aria-label="Colour"
+              placeholder="Colour: auto"
+              aria-label="Colour in hex, leave empty for an automatic one"
               className="rounded border border-border bg-background px-2 py-1.5 text-sm"
             />
             <button
