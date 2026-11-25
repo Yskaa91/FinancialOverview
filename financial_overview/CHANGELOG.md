@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1
+
+- **Installing and updating the add-on is faster.** The image was carrying about
+  1.1 GB of runtime tree, and the build ran the full dependency install twice. It
+  now installs once and prunes, drops the compiler toolchain it never needed, and
+  strips what only the build or another platform used: the Next.js Rust compiler,
+  the WASM image fallback, SQLite prebuilds for macOS, Windows and musl, and
+  Turbopack's rebuild cache. About 170 MB less to pull, and one multi-minute
+  install less per build. Startup also skips `npx` now that both binaries are in
+  the image.
+- Nothing about the app changes: same routes, same data, same migrations.
+
 ## 0.6.0
 
 - **Homes anywhere in Europe.** The real estate tab takes a country now: inside

@@ -37,7 +37,9 @@ echo "[financial_overview] database: ${DATABASE_URL}"
 echo "[financial_overview] ai: ${AI_PROVIDER:-none} (${AI_MODEL:-unset}), price refresh: ${PRICE_FETCH:-disabled}"
 echo "[financial_overview] login: $([ -n "${ACCESS_PASSWORD:-}" ] && echo required || echo disabled)"
 
-# Migrations are idempotent and safe to run on every start.
-npx prisma migrate deploy
+# Migrations are idempotent and safe to run on every start. Both binaries are in
+# the image (prisma is a runtime dependency), so this never reaches the network:
+# `npx` would still spend a second resolving before it ran them.
+./node_modules/.bin/prisma migrate deploy
 
-exec npx next start --hostname 0.0.0.0 --port 3000
+exec ./node_modules/.bin/next start --hostname 0.0.0.0 --port 3000

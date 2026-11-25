@@ -85,9 +85,28 @@ add-on options (/data/options.json)
   is plain JavaScript so that starting the server never needs the TypeScript
   compiler, and the only files copied in are `.next`, `public`, `prisma`, the
   Prisma config, the option mapper and `run.sh`.
-- **Build stage only carries the toolchain.** `python3 make g++` exist in the
-  builder so a missing prebuilt for `better-sqlite3` or Prisma cannot break the
-  image; the runtime stage is the plain `node:22-bookworm-slim`.
+- **One install, then prune.** The build used to run `npm ci` in one stage and
+  `npm ci --omit=dev` in another — two multi-minute installs for the same tree.
+  Now the builder installs once, builds, and runs `npm prune --omit=dev`, which
+  keeps `prisma` (a runtime dependency, since `run.sh` migrates on start) and the
+  generated client in `node_modules/.prisma`.
+- **What the image drops after the build.** `@next/swc-*` (the Rust compiler,
+  only `next build` needs it), `sharp-wasm32` (image optimisation fallback for
+  other platforms), `better-sqlite3` prebuilds for macOS/Windows/musl, and
+  `.next/cache` (Turbopack's rebuild cache). Together about 170 MB less to pull
+  and unpack per install or update: ~1.10 GB of runtime tree before, ~933 MB
+  after, measured locally.
+- **No compiler toolchain.** `better-sqlite3` ships prebuilds for linux-x64 and
+  linux-arm64 and Prisma ships its engines, so `npm ci` never runs node-gyp and
+  the `python3 make g++` layer went away. A dependency that does need to compile
+  has to add it back to the `deps` stage.
+- **Not done: Next.js `output: "standalone"`.** It would cut most of the ~700 MB
+  of `node_modules`, but `run.sh` needs the Prisma CLI for migrations, and that
+  CLI pulls `@prisma/studio-core` and `@prisma/dev` at load time (verified: the
+  CLI crashes without either), so the saving would be smaller than it looks and
+  the packaging risk is not worth it today. The other lever is BuildKit cache
+  mounts for npm; they need `# syntax=docker/dockerfile:1` and a builder with
+  BuildKit, which is not guaranteed on older Supervisors.
 
 ## 3. Repository layout
 
