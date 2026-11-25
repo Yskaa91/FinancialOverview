@@ -44,6 +44,41 @@ never in `schema.prisma`. `prisma.config.ts` also pins the migrations path.
 on, every database read has to sit inside a Suspense boundary, which is a phase 6
 concern.
 
+## 2b. Deployment as a Home Assistant add-on
+
+The repository is an add-on store: `repository.yaml` at the root, one add-on in
+`financial_overview/`. The Supervisor clones the repo and builds the add-on with
+**that folder as the Docker build context**, which is why the whole app lives
+inside it — anything outside cannot be copied into an image.
+
+```
+add-on options (/data/options.json)
+  → scripts/container-env.mjs   maps options to the env vars the app already reads
+  → run.sh                      DATABASE_URL=file:/data/financial.db,
+                                prisma migrate deploy (idempotent), then next start
+  → next start                  0.0.0.0:3000, published to the host
+```
+
+- **Configuration has one code path.** The app reads `AI_PROVIDER`,
+  `AI_API_KEY`, `AI_MODEL`, `AI_MAX_BATCHES`, `MIN_HITS_FOR_RULE` and
+  `PRICE_FETCH` from the environment in both setups; the add-on only maps its
+  options onto those names. No second configuration reader exists.
+- **Quoting matters.** Options are written with POSIX single-quote escaping, so an
+  API key containing `'`, `$( )` or spaces stays literal when run.sh sources it.
+- **State lives in `/data`.** `DATABASE_URL` defaults to
+  `file:/data/financial.db`, the only path Home Assistant keeps across restarts,
+  rebuilds and `backup: cold` snapshots. The old local `dev.db` is ignored.
+- **Migrations at start.** `prisma migrate deploy` runs on every boot; with no
+  pending migrations it is a no-op, so a rebuild cannot lose or duplicate data.
+- **No ingress.** Home Assistant ingress forwards at a per-session path prefix,
+  and a Next.js app cannot rebase its asset URLs at runtime (`basePath` is baked
+  at build time), so the add-on publishes port 3000 and uses `webui` instead: the
+  sidebar entry opens the UI in a new tab. This is a deliberate trade of sidebar
+  embed for a working app.
+- **Build stage only carries the toolchain.** `python3 make g++` exist in the
+  builder so a missing prebuilt for `better-sqlite3` or Prisma cannot break the
+  image; the runtime stage is the plain `node:22-bookworm-slim`.
+
 ## 3. Repository layout
 
 ```

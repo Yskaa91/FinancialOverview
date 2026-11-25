@@ -1,0 +1,35 @@
+configuration:
+  ai_provider:
+    name: AI provider
+    description: >-
+      Enables the "Suggest with AI" button in the import review, which proposes
+      categories for merchants no rule matched. Leave on "none" to keep every
+      transaction on your own hardware; rules, merchant memory and manual picks
+      keep working either way.
+  ai_api_key:
+    name: API key
+    description: >-
+      Key for the chosen provider. Only merchant text, the group total and a row
+      count are ever sent, never IBANs, account names or balances.
+  ai_model:
+    name: Model
+    description: >-
+      Any cheap chat model from the provider. Costs scale with the number of
+      distinct merchants in a statement, not with the number of transactions.
+  ai_max_batches:
+    name: Max AI calls per review
+    description: >-
+      Hard cap on API calls for one import review. At 40 merchants per call this
+      is a ceiling on both latency and spend.
+  min_hits_for_rule:
+    name: Visits before a merchant earns a rule
+    description: >-
+      How often a merchant must appear within twelve months before the AI
+      proposes a rule for it. Higher means fewer, more predictable rules.
+  price_fetch:
+    name: ETF price refresh
+    description: >-
+      "stooq" fetches the latest quote for instruments when you open a broker
+      account page. "disabled" keeps valuations manual.
+network:
+  3000/tcp: Web interface

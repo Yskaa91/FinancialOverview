@@ -1,126 +1,84 @@
-# FinancialOverview
+# Financial Overview
 
-Personal overview of wealth, income and expenses. Runs locally, on one machine,
-with a single SQLite file. Imports from ASN, PayPal and ICS, automatic
-categorisation with rules and (optionally) AI proposals you approve, and manually tracked ETF positions.
+A personal finance web app that tracks wealth, income and expenses: imports bank
+statements from ASN, PayPal and ICS, categorises them with rules you control,
+watches account balances and manually tracked ETF positions.
 
-Status: **working prototype**. Accounts, statements from all three sources with
-preview and idempotent commit, rule engine with merchant learning, review queue,
-ETF portfolio with FIFO valuation, dashboard with charts, and demo data to look
-at immediately. Remaining phases are in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
+Ships as a **Home Assistant add-on** and runs as a plain Next.js app for
+development. Either way the data is one SQLite file on your own machine.
 
-## Quick start
+## Install on Home Assistant
 
-Node 20.9 or higher is required (Next.js 16 needs it).
+1. Settings → Add-ons → Add-on store → ⋮ → **Repositories**
+2. Add `https://github.com/Yskaa91/FinancialOverview`
+3. Install **Financial Overview**, start it, **Open Web UI**
 
-```bash
-npm install
-cp .env.example .env        # DATABASE_URL="file:./dev.db"
-npx prisma migrate deploy   # creates dev.db and the tables
-npm run db:seed             # optional: six months of demo data
-npm run dev                 # http://localhost:3000
+AI-assisted categorisation is optional and configured in the add-on options
+(provider, API key, model, call cap). Rules, merchant memory and manual picks
+work with no key at all. Everything else — statement formats, the review dialog,
+transfers, duplicates — is described in
+[`financial_overview/README.md`](financial_overview/README.md).
+
+> No login screen: keep it on your LAN and do not forward port 3000.
+
+## Repository layout
+
+```
+.
+├── repository.yaml          # makes this repo an add-on store
+├── financial_overview/      # the add-on: Dockerfile, config.yaml, and the app
+│   ├── config.yaml          # add-on metadata and options schema
+│   ├── Dockerfile           # multi-stage build, Node 22 on Debian slim
+│   ├── run.sh               # options -> env, migrations, then next start
+│   ├── src/                 # Next.js app (pages, server actions, libs)
+│   ├── prisma/              # schema and migrations
+│   ├── tests/               # vitest, 168 tests
+│   ├── samples/             # demo statements to click through the import
+│   └── docs/                # architecture, import formats, design notes
 ```
 
-`npm run db:seed` **wipes** the tables it owns and inserts a deterministic demo
-set: five accounts, fourteen categories, four rules, two learned merchants, 132
-transactions (including transfer pairs and rows left to categorise), three
-instruments with nine trades and prices. Run it again any time to get back to a
-known state.
+The app lives inside the add-on folder because the Home Assistant Supervisor
+builds each add-on with that folder as the Docker build context — sources outside
+it cannot be copied into the image.
 
-## Commands
-
-| Command | Does |
-|---|---|
-| `npm run dev` | dev server on localhost:3000 |
-| `npm run build` / `npm start` | production build and server |
-| `npm test` | Vitest: money and date tests (parsers and FIFO next) |
-| `npm run lint` | ESLint |
-| `npm run db:migrate` | new migration after a schema change |
-| `npm run db:studio` | Prisma Studio on dev.db |
-| `npm run db:generate` | regenerate Prisma Client |
-| `npm run db:seed` | rebuild the demo dataset (destructive) |
-
-## Pages
-
-| Route | Contents |
-|---|---|
-| `/` | Dashboard: net worth, 30-day delta, monthly figures, largest categories, needs a category |
-| `/transactions` | Income & expenses: filter, inline category picker, review queue, run rules |
-| `/accounts` | Accounts: balance per account; detail page with transactions, imports and, for broker accounts, holdings and the trade log |
-| `/settings` | Categories, the rules editor popup, merchant memory, AI and price status |
-| `/import` | Upload, then one review dialog with rule-matched and unmatched rows (not a tab) |
-
-## Trying the import by hand
-
-`samples/` holds two ASN statements built for exactly this: they hit rules, hit
-merchant memory, contain one recurring merchant that earns a rule and one florist
-who must not. `npm run db:seed` first, then follow `samples/README.md` — it lists
-the exact numbers the dialog shows.
-
-## Documentation
-
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — stack, data model, import
-  pipeline, categorisation logic, portfolio, phases, risks.
-- [`docs/IMPORT-FORMATS.md`](docs/IMPORT-FORMATS.md) — exact ASN, PayPal and ICS
-  file formats, with sources and what is *not* documented.
-- [`docs/TOOLING.md`](docs/TOOLING.md) — project-scoped skills and MCP servers,
-  and the design decisions that follow from them.
-
-## UI
-
-Dense dashboard: IBM Plex Sans for text, IBM Plex Mono for amounts, 12 px card
-padding, 36 px table rows, sticky table headers, visible focus ring and a skip
-link. Tokens live in `src/app/globals.css`; change them there, not per component.
-Design decisions are traceable in `docs/TOOLING.md`.
-
-## AI category suggestions
-
-Optional, off by default. Rules and manual corrections are the primary path.
+## Development
 
 ```bash
-# .env.local
-AI_PROVIDER=mistral
-AI_API_KEY=your-key
-AI_MODEL=mistral-small-latest   # any cheap chat model
-AI_MAX_BATCHES=5                # 5 calls x 40 transactions per run
+cd financial_overview
+npm ci
+cp .env.example .env.local     # DATABASE_URL and the optional AI settings
+npm run db:migrate
+npm run db:seed                # demo data: 5 accounts, 132 transactions, 3 ETFs
+npm run dev                    # http://localhost:3000
 ```
 
-With that set, the import review dialog grows a **Suggest with AI** button. It
-fills the categories of the merchants no rule matched, and proposes a *rule* for
-the merchants that recur (default 3 visits in 12 months, `MIN_HITS_FOR_RULE`).
-A one-off florist gets a category and no rule; a weekly shop gets a rule, so the
-next statement needs neither a click nor an API call. Nothing is applied until
-you approve it, and the rules stay the predictable part of the system. Only
-merchant text, the group total and a row count leave the machine.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` / `build` / `start` | Next.js development and production |
+| `npm test` | Vitest suite (importers, rules, AI prompts, portfolio maths) |
+| `npm run lint` / `npx tsc --noEmit` | ESLint and type check |
+| `npm run db:migrate` / `db:seed` / `db:studio` | Prisma migrate, demo data, data browser |
 
-All copy is English. Amounts and dates still render in the Dutch convention
-(€ 1.234,56 and 31-01-2026) because that matches the source statements; the
-formatting lives in `src/lib/money.ts` and `src/lib/dates.ts`.
+## How it decides a category
 
-## Transfers and duplicates
+1. **Manual** — final, never overwritten.
+2. **Merchant memory** — one confirmation per shop.
+3. **Rules** — your list, ordered by priority, editable in one popup.
+4. **Account transfer** — movements between your own accounts get the single
+   `Transfers` category and stay out of income and expense.
+5. **AI proposals** — filled in the import review, applied only when you approve,
+   and they only become rules for merchants that genuinely recur.
 
-Every movement between your own accounts gets one category, **Transfers**
-(`kind TRANSFER`), and the dashboard and income/expense overview skip that kind.
-There is no pairing and no balancing: PayPal's `-X to ASN` and ASN's
-`+X from PayPal` are each recognised as a transfer on their own.
-
-An import that overlaps a previous export is fine. The review dialog lists
-suspected duplicates with both sides visible and an Import/Skip choice per row,
-plus Import all/Skip all. `EXACT` (already stored) starts on Skip, `LIKELY` (same
-amount within three days) starts on Import.
+Details, including the recurrence threshold and the duplicate verdicts, are in
+[`financial_overview/docs/ARCHITECTURE.md`](financial_overview/docs/ARCHITECTURE.md).
 
 ## Rules that must not break
 
-- Money is **integer cents**, never a float. See `src/lib/money.ts`.
+- Money is **integer cents**, never a float.
 - Imports are **idempotent**: `Statement.fileHash` and `Transaction.dedupeHash`
-  prevent double income when periods overlap.
+  prevent double counting when periods overlap, and the dialog warns about
+  look-alikes before writing.
 - A credit card account carries a **negative** balance; net worth is the sum.
-- Nothing leaves the machine except (optionally) description + amount to an AI
-  provider and tickers to Stooq. No IBANs, no account names.
-- The app has **no authentication** and is meant to stay on `127.0.0.1`.
-
-## Database file
-
-`dev.db` sits in the repository root and is git-ignored. Backing up is copying
-the file.
+- No language other than English in code, copy or docs. Amounts and dates still
+  render as Dutch convention (€ 1.234,56 / 31-01-2026) because that matches the
+  source statements.

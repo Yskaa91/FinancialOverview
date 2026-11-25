@@ -1,0 +1,8 @@
+build_from:
+  aarch64: node:22-bookworm-slim
+  amd64: node:22-bookworm-slim
+labels:
+  org.opencontainers.image.title: Financial Overview
+  org.opencontainers.image.description: Personal wealth, income and expense tracker
+  org.opencontainers.image.source: https://github.com/Yskaa91/FinancialOverview
+  org.opencontainers.image.licenses: MIT
