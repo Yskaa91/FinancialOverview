@@ -3,27 +3,25 @@ import { prisma } from "@/lib/db";
 import { ACCOUNT_TYPE_LABELS, CATEGORY_KINDS } from "@/lib/types";
 import { AI_MAX_BATCHES, AI_MODEL, isAiConfigured } from "@/lib/categorize/ai";
 import { requireSession } from "@/lib/auth";
+import { loadCategoryImpact } from "@/lib/queries/impact";
+import { CategoriesEditor } from "./categories-editor";
 import { RulesEditor } from "./rules-editor";
-import { createCategory, deleteCategory, forgetMerchant } from "./actions";
+import { createCategory, forgetMerchant } from "./actions";
 
 // Reads the database on every request; nothing here is safe to prerender.
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   await requireSession();
-  const [categories, rules, merchants, instruments] = await Promise.all([
+  const [categories, rules, merchants, instruments, impact] = await Promise.all([
     prisma.category.findMany({ orderBy: [{ kind: "asc" }, { name: "asc" }] }),
     prisma.rule.findMany({ orderBy: [{ priority: "asc" }, { name: "asc" }] }),
     prisma.merchantMap.findMany({ orderBy: { hits: "desc" }, take: 20 }),
     prisma.instrument.count(),
+    loadCategoryImpact(),
   ]);
 
   const categoryById = new Map(categories.map((c) => [c.id, c]));
-  const usage = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    _count: { _all: true },
-  });
-  const usageBy = new Map(usage.map((u) => [u.categoryId, u._count._all]));
 
   const aiProvider = process.env.AI_PROVIDER ?? "none";
   const aiKeyPresent = Boolean(process.env.AI_API_KEY);
@@ -71,38 +69,17 @@ export default async function SettingsPage() {
             </button>
           </form>
 
-          <ul className="max-h-72 divide-y divide-border overflow-y-auto text-[13px]">
-            {categories.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-2 py-1.5">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-full border border-border"
-                    style={{ background: c.color ?? "transparent" }}
-                  />
-                  <span className="truncate">{c.name}</span>
-                  <span className="shrink-0 text-[11px] text-muted">
-                    {c.kind.toLowerCase()}
-                    {usageBy.get(c.id) ? ` · ${usageBy.get(c.id)}` : ""}
-                  </span>
-                </span>
-                <form action={deleteCategory}>
-                  <input type="hidden" name="categoryId" value={c.id} />
-                  <button
-                    type="submit"
-                    className="text-[11px] text-muted underline hover:text-negative"
-                    title={
-                      usageBy.get(c.id)
-                        ? "In use, cannot be deleted"
-                        : "Delete this category"
-                    }
-                  >
-                    remove
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
+          <CategoriesEditor
+            categories={categories.map((c) => ({
+              id: c.id,
+              name: c.name,
+              kind: c.kind,
+              color: c.color,
+              parentId: c.parentId,
+              isSystem: c.isSystem,
+            }))}
+            impact={Object.fromEntries(impact)}
+          />
         </Card>
 
         <Card title="Rules">

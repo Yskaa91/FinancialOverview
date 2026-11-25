@@ -8,6 +8,10 @@ export type AccountSummary = {
   type: AccountType;
   institution: Institution;
   currency: string;
+  /** Everything the edit form needs to prefill itself from the create form. */
+  iban: string | null;
+  archived: boolean;
+  openingBalanceCents: number;
   balanceCents: number;
   change30dCents: number;
   lastImportAt: Date | null;
@@ -46,6 +50,9 @@ export async function listAccounts(includeArchived = false): Promise<AccountSumm
     type: a.type as AccountType,
     institution: a.institution as Institution,
     currency: a.currency,
+    iban: a.iban,
+    archived: a.archived,
+    openingBalanceCents: a.openingBalanceCents,
     balanceCents: a.openingBalanceCents + (totalBy.get(a.id) ?? 0),
     change30dCents: recentBy.get(a.id) ?? 0,
     lastImportAt: importBy.get(a.id) ?? null,
