@@ -4,10 +4,13 @@ import { formatCents, formatCentsSigned } from "@/lib/money";
 import { formatDay } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
 import { listCategories, listTransactions } from "@/lib/queries/transactions";
+import { CategoryPicker } from "./category-picker";
+import { runRules } from "./actions";
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const review = first(sp.review) === "1";
 
   const filters = {
     accountId: first(sp.accountId),
@@ -16,6 +19,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     to: first(sp.to),
     q: first(sp.q),
     page: Number(first(sp.page) ?? 1),
+    review,
   };
 
   const [{ items, count, pageCount, sumCents }, accounts, categories] = await Promise.all([
@@ -31,7 +35,32 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         subtitle="Filter, categorise and review every transaction"
       />
 
-      <form className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" action="/transactions">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <Link
+          href={review ? "/transactions" : "/transactions?review=1"}
+          className={`rounded-md border px-2.5 py-1.5 ${
+            review
+              ? "border-accent bg-accent/10 font-medium text-foreground"
+              : "border-border text-muted hover:bg-surface-muted"
+          }`}
+        >
+          {review ? "Showing review queue" : "Review queue"}
+        </Link>
+        <form action={runRules}>
+          <button
+            type="submit"
+            className="rounded-md border border-border px-2.5 py-1.5 text-muted hover:bg-surface-muted"
+          >
+            Run rules on uncategorised
+          </button>
+        </form>
+        <span className="text-xs text-muted">
+          Picking a category saves immediately and remembers the merchant.
+        </span>
+      </div>
+
+      <form className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" action="/transactions">
+        {review && <input type="hidden" name="review" value="1" />}
         <input
           name="q"
           defaultValue={filters.q}
@@ -86,11 +115,17 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
       {count === 0 ? (
         <EmptyState title="No transactions in this selection">
-          Change the filter, or{" "}
-          <Link href="/import" className="underline">
-            import a statement
-          </Link>
-          .
+          {review ? (
+            <>Nothing left to review. Every transaction has a category.</>
+          ) : (
+            <>
+              Change the filter, or{" "}
+              <Link href="/import" className="underline">
+                import a statement
+              </Link>
+              .
+            </>
+          )}
         </EmptyState>
       ) : (
         <Card
@@ -116,14 +151,28 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                 {items.map((t) => (
                   <tr key={t.id} className="border-b border-border/60 last:border-0">
                     <td className="whitespace-nowrap py-2 pr-3 tabular">{formatDay(t.bookedAt)}</td>
-                    <td className="max-w-[26rem] truncate py-2 pr-3" title={t.description}>
-                      {t.merchant ?? t.description}
+                    <td className="max-w-[22rem] py-2 pr-3">
+                      <span className="block truncate" title={t.description}>
+                        {t.merchant ?? t.description}
+                      </span>
+                      {t.reviewState === "SUGGESTED" && (
+                        <span className="block text-[11px] text-muted">
+                          AI suggestion, not confirmed
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 pr-3 text-muted">{t.accountName}</td>
                     <td className="py-2 pr-3">
-                      {t.categoryName ?? (
-                        <span className="text-negative">uncategorised</span>
-                      )}
+                      <CategoryPicker
+                        transactionId={t.id}
+                        categoryId={t.categoryId}
+                        categories={categories.map((c) => ({
+                          id: c.id,
+                          name: c.name,
+                          kind: c.kind,
+                        }))}
+                        sameMerchantOpen={t.sameMerchantOpen}
+                      />
                     </td>
                     <td
                       className={`py-2 pl-3 text-right tabular ${t.amountCents < 0 ? "text-negative" : "text-positive"}`}

@@ -1,0 +1,12 @@
+Datum,Tijd,Tijdzone,Naam,Type,Status,Valuta,Bruto,Kosten,Netto,Van e-mailadres,Naar e-mailadres,Transactie-id,Artikel titel,Saldo
+03/03/2025,09:12:44,Europe/Amsterdam,Steam Games,Websitebetaling,Completed,EUR,"-11,99","0,00","-11,99",jan.jansen@example.com,payments@steampowered.com,8AB12345CD6789012,Steam Games,"-11,99"
+03/03/2025,14:02:10,Europe/Amsterdam,Etsy,Websitebetaling,Pending,EUR,"-24,50","-1,00","-25,50",jan.jansen@example.com,seller@etsy.example,4CD98765EF4321098,Etsy bestelling,"-37,49"
+05/03/2025,11:31:00,Europe/Amsterdam,Spotify AB,Abonnement,Completed,EUR,"-10,99","0,00","-10,99",jan.jansen@example.com,no-reply@spotify.com,7GH34567IJ8901234,Spotify Premium,"-22,98"
+07/03/2025,08:05:22,Europe/Amsterdam,Adobe Systems,Websitebetaling,Completed,EUR,"-59,99","0,00","-59,99",jan.jansen@example.com,no-reply@adobe.com,1KL23456MN7890123,Creative Cloud,"-82,97"
+10/03/2025,16:44:03,Europe/Amsterdam,M. de Vries,Betaling ontvangen,Completed,EUR,"25,00","-0,74","24,26",jan.jansen@example.com,m.devries@example.nl,3OP45678QR9012345,,"-58,71"
+12/03/2025,12:00:00,Europe/Amsterdam,Uber B.V.,Websitebetaling,Reversed,EUR,"-8,40","0,00","-8,40",jan.jansen@example.com,no-reply@uber.com,5ST67890UV1234567,Uber rit,"-67,11"
+17/03/2025,10:15:45,Europe/Amsterdam,OpenAI LLC,Websitebetaling,Completed,EUR,"-20,00","0,00","-20,00",jan.jansen@example.com,no-reply@openai.com,7WX89012YZ3456789,API gebruik,"-87,11"
+21/03/2025,19:22:31,Europe/Amsterdam,Marktplaats,Betaling ontvangen,Completed,EUR,"75,00","-2,48","72,52",jan.jansen@example.com,koper@marktplaats.example,9AB12345CD6789013,,"-14,59"
+26/03/2025,07:08:09,Europe/Amsterdam,Hema,Websitebetaling,Completed,EUR,"-16,75","0,00","-16,75",jan.jansen@example.com,no-reply@hema.nl,2EF34567GH8901234,Hema bestelling,"-31,34"
+29/03/2025,13:59:59,Europe/Amsterdam,Facebook,Websitebetaling,Denied,EUR,"-5,00","0,00","-5,00",jan.jansen@example.com,no-reply@facebook.com,4IJ56789KL0123456,Advertentie,"-36,34"
+31/03/2025,20:41:12,Europe/Amsterdam,KLM,Websitebetaling,Completed,EUR,"-128,40","-3,50","-131,90",jan.jansen@example.com,no-reply@klm.com,6MN78901OP2345678,KLM ticket,"-168,24"

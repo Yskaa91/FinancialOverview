@@ -1,0 +1,11 @@
+﻿Transactiedatum;Boekingsdatum;Omschrijving;Naam Card-houder;Card nummer;Debit/Credit;Bedrag;Merchant categorie;Land;Valuta;Bedrag in oorspronkelijke valuta;Type transactie;Wallet provider
+06-09-2026;07-09-2026;ACME* CLOUD PLAN SAN FRANCISCO USA;"Jansen, J";****1234;D;4,29;Computer Software Stores;USA;USD;4,85;Transaction;null
+12-09-2026;12-09-2026;GEINCASSEERD VORIG SALDO;"Jansen, J";****null;C;-163,94;;;EUR;-163,94;Payment;null
+01-10-2026;02-10-2026;MUSICBOX.COM/BILL CORK IRL;"Jansen, J";****1234;D;9,99;Digital Goods-Multi Categ;IRL;EUR;9,99;Transaction;null
+03-10-2026;04-10-2026;COFFEE CORNER AMSTERDAM;"Jansen, J";****1234;D;3,20;Restaurants;NLD;EUR;3,20;Transaction;null
+03-10-2026;04-10-2026;COFFEE CORNER AMSTERDAM;"Jansen, J";****1234;D;3,20;Restaurants;NLD;EUR;3,20;Transaction;null
+05-10-2026;06-10-2026;SUPERMARKT DEEN ALKMAAR;"Jansen, J";****1234;D;52,18;Grocery Stores;NLD;EUR;52,18;Transaction;null
+08-10-2026;09-10-2026;HOTEL ZURICH SWITZERLAND;"Jansen, J";****1234;D;128,00;Hotels;CHE;CHF;122,50;Transaction;null
+10-10-2026;11-10-2026;REFUND MUSICBOX.COM IRL;"Jansen, J";****1234;C;9,99;Digital Goods-Multi Categ;IRL;EUR;9,99;Transaction;null
+13-10-2026;14-10-2026;AIRLINE TICKET KLM AMSTERDAM;"Jansen, J";****1234;D;64,50;Airlines;NLD;EUR;64,50;Transaction;null
+15-10-2026;15-10-2026;HARDWARE STORE UTRECHT;"Jansen, J";****1234;D;;Hardware Stores;NLD;EUR;25,00;Transaction;null

@@ -3,12 +3,20 @@ import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { formatCents, formatCentsSigned } from "@/lib/money";
 import { formatDay } from "@/lib/dates";
 import { getDashboard } from "@/lib/queries/dashboard";
+import { cashflowSeries, netWorthSeries } from "@/lib/queries/history";
+import { NetWorthChart } from "@/components/charts/net-worth-chart";
+import { CashflowBars } from "@/components/charts/cashflow-bars";
+import { CategoryPie } from "@/components/charts/category-pie";
 
 // Reads the database on every request; nothing here is safe to prerender.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const data = await getDashboard();
+  const [data, netWorth, cashflow] = await Promise.all([
+    getDashboard(),
+    netWorthSeries(12),
+    cashflowSeries(12),
+  ]);
   const monthNet = data.monthIncomeCents - data.monthExpenseCents;
   const hasAccounts = data.accounts.length > 0;
 
@@ -58,6 +66,24 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        <Card title="Net worth, 12 months" className="lg:col-span-2">
+          <NetWorthChart points={netWorth} />
+        </Card>
+        <Card title="Spending by category, this month">
+          <CategoryPie
+            slices={data.topCategories.map((c) => ({
+              name: c.name,
+              cents: c.totalCents,
+              color: c.color,
+            }))}
+          />
+        </Card>
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        <Card title="Income and expenses per month" className="lg:col-span-2">
+          <CashflowBars points={cashflow} />
+        </Card>
         <Card title="Assets and liabilities">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">

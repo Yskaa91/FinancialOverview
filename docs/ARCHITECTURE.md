@@ -310,7 +310,8 @@ transaction; backups are a file copy of `prisma/dev.db`.
 | 6 | Dashboard aggregates and charts, balance history |
 | 7 | Export, backup, polish |
 
-Phase 0 is what this repository starts with.
+Done: 0, 1, 2, 3, 4, 5, 6 (charts on the dashboard, net worth and cashflow
+history). Not started: 7, plus the optional AI provider call and CAMT.053.
 
 ## 13. Known risks and shortcuts
 

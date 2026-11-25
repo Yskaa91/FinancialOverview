@@ -4,9 +4,11 @@ Personal overview of wealth, income and expenses. Runs locally, on one machine,
 with a single SQLite file. Imports from ASN, PayPal and ICS, automatic
 categorisation with rules and (optionally) AI, and manually tracked ETF positions.
 
-Status: **phase 0** — the skeleton is in place (stack, database schema, four pages,
-money and date layer, tests). Importers, categorisation UI, portfolio and charts
-follow the phases in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
+Status: **working prototype**. Accounts, statements from all three sources with
+preview and idempotent commit, rule engine with merchant learning, review queue,
+ETF portfolio with FIFO valuation, dashboard with charts, and demo data to look
+at immediately. Remaining phases are in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
 
 ## Quick start
 
@@ -16,10 +18,15 @@ Node 20.9 or higher is required (Next.js 16 needs it).
 npm install
 cp .env.example .env        # DATABASE_URL="file:./dev.db"
 npx prisma migrate deploy   # creates dev.db and the tables
+npm run db:seed             # optional: six months of demo data
 npm run dev                 # http://localhost:3000
 ```
 
-Then add accounts in `/accounts` and import files through `/import`.
+`npm run db:seed` **wipes** the tables it owns and inserts a deterministic demo
+set: five accounts, fourteen categories, four rules, two learned merchants, 132
+transactions (including transfer pairs and rows left to categorise), three
+instruments with nine trades and prices. Run it again any time to get back to a
+known state.
 
 ## Commands
 
@@ -32,16 +39,17 @@ Then add accounts in `/accounts` and import files through `/import`.
 | `npm run db:migrate` | new migration after a schema change |
 | `npm run db:studio` | Prisma Studio on dev.db |
 | `npm run db:generate` | regenerate Prisma Client |
+| `npm run db:seed` | rebuild the demo dataset (destructive) |
 
 ## Pages
 
 | Route | Contents |
 |---|---|
 | `/` | Dashboard: net worth, 30-day delta, monthly figures, largest categories, needs a category |
-| `/transactions` | Income & expenses: filter, search, categorise, export |
-| `/accounts` | Accounts: balance per account; detail page with transactions, imports and (phase 5) portfolio |
-| `/settings` | Categories, rules, merchant memory, AI status, data |
-| `/import` | Three-step wizard (not a tab, a button in the navigation) |
+| `/transactions` | Income & expenses: filter, inline category picker, review queue, run rules |
+| `/accounts` | Accounts: balance per account; detail page with transactions, imports and, for broker accounts, holdings and the trade log |
+| `/settings` | Category and rule management, merchant memory, AI and price status |
+| `/import` | Three-step wizard: upload, check the preview, commit (not a tab) |
 
 ## Documentation
 
