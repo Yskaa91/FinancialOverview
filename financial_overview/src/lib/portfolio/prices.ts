@@ -56,3 +56,24 @@ export function parseYahooCloseCents(payload: unknown): number | null {
   }
   return null;
 }
+
+/** An ISIN starts with a two-letter country code and ends with a check digit. */
+export function looksLikeIsin(value: string): boolean {
+  return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(value.trim().toUpperCase());
+}
+
+/**
+ * Ticker out of a Yahoo `v1/finance/search` answer. Yahoo sorts the quotes by
+ * how well they match, so the first one that names a symbol is the primary
+ * listing; the same ISIN also shows up as `<isin>.<venue>` on a secondary
+ * exchange, which is a usable fallback but a worse quote.
+ */
+export function parseYahooSearchSymbol(payload: unknown): string | null {
+  const quotes = (payload as { quotes?: { symbol?: unknown; quoteType?: unknown }[] })?.quotes;
+  if (!Array.isArray(quotes)) return null;
+  for (const quote of quotes) {
+    const symbol = quote?.symbol;
+    if (typeof symbol === "string" && symbol.trim() !== "") return symbol.trim();
+  }
+  return null;
+}

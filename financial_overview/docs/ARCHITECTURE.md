@@ -377,9 +377,12 @@ visible before anything is written, and the footer count follows the decisions.
 - Value = `quantity × latest price`. Price comes from the newest `Price` row.
   With `PRICE_FETCH` on, `lib/portfolio/quotes.ts` refreshes every instrument
   someone holds from Yahoo Finance's keyless chart endpoint (`SYMBOL.AS`, then
-  `SYMBOL.DE`, then the symbol as typed, or `Instrument.priceSymbol` first), but
-  only when the newest row is older than 12 hours. `/portfolio` does that on
-  open; the account page button ignores the window. Stooq was the source until
+  `SYMBOL.DE`, then the symbol as typed, or `Instrument.priceSymbol` first). A
+  holding identified by an ISIN is resolved through Yahoo's search endpoint
+  (`IE00BD4TXV59` → `UETW.DE`) and that listing is tried first, because no quote
+  endpoint prices an ISIN directly. Refresh happens only when the newest row is
+  older than 12 hours; `/portfolio` does that on open, and the account page
+  button ignores the window. Stooq was the source until
   its CSV endpoint started answering with a JavaScript challenge, so `stooq`
   stays an accepted `price_fetch` value and means the same thing.
 - Account balance for a broker = cash snapshot + sum of position values. The

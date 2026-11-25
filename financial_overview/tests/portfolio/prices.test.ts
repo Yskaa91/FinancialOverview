@@ -3,7 +3,9 @@ import {
   PRICE_TTL_MS,
   isStale,
   latestPriceCents,
+  looksLikeIsin,
   parseYahooCloseCents,
+  parseYahooSearchSymbol,
   quoteTickers,
 } from "@/lib/portfolio/prices";
 
@@ -78,5 +80,40 @@ describe("parseYahooCloseCents", () => {
     expect(parseYahooCloseCents(null)).toBeNull();
     expect(parseYahooCloseCents({ chart: { result: [] } })).toBeNull();
     expect(parseYahooCloseCents({ chart: { result: [{ meta: { regularMarketPrice: 0 } }] } })).toBeNull();
+  });
+});
+
+describe("looksLikeIsin", () => {
+  it("accepts a real ISIN in any case", () => {
+    expect(looksLikeIsin("IE00BD4TXV59")).toBe(true);
+    expect(looksLikeIsin(" ie00bd4txv59 ")).toBe(true);
+    expect(looksLikeIsin("NL0000009165")).toBe(true);
+  });
+
+  it("rejects tickers, dates and near misses", () => {
+    expect(looksLikeIsin("VWCE")).toBe(false);
+    expect(looksLikeIsin("VWCE.DE")).toBe(false);
+    expect(looksLikeIsin("IE00BD4TXV5")).toBe(false);
+    expect(looksLikeIsin("IE00BD4TXV591")).toBe(false);
+    expect(looksLikeIsin("1E00BD4TXV59")).toBe(false);
+    expect(looksLikeIsin("")).toBe(false);
+  });
+});
+
+describe("parseYahooSearchSymbol", () => {
+  it("takes the first listing Yahoo ranks", () => {
+    const payload = {
+      quotes: [
+        { symbol: "UETW.DE", quoteType: "ETF" },
+        { symbol: "IE00BD4TXV59.SG", quoteType: "MUTUALFUND" },
+      ],
+    };
+    expect(parseYahooSearchSymbol(payload)).toBe("UETW.DE");
+  });
+
+  it("returns null when nothing names a symbol", () => {
+    expect(parseYahooSearchSymbol({ quotes: [] })).toBeNull();
+    expect(parseYahooSearchSymbol({ quotes: [{ symbol: "  " }] })).toBeNull();
+    expect(parseYahooSearchSymbol(null)).toBeNull();
   });
 });

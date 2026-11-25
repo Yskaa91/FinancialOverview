@@ -1,5 +1,5 @@
 name: Financial Overview
-version: "0.4.0"
+version: "0.4.1"
 slug: financial_overview
 description: Track wealth, income and expenses from ASN, PayPal and ICS statements
 url: https://github.com/Yskaa91/FinancialOverview

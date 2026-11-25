@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- **Holdings identified by ISIN get prices.** A fund entered as `IE00BD4TXV59`
+  used to stay unpriced, because no quote endpoint answers for an ISIN. The
+  lookup now asks Yahoo's search which listing matches and prices that one
+  (`UETW.DE` in this case), with the result cached for the run. Typing an ISIN in
+  the trade form also stores it as the instrument's ISIN. The ASN, net-worth and
+  review behaviour from 0.4.0 is unchanged; no migration is needed.
+
 ## 0.4.0
 
 Buying and selling by hand, and prices that keep themselves current.

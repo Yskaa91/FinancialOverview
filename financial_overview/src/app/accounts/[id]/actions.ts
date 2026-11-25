@@ -7,6 +7,7 @@ import { quantityToMicro } from "@/lib/money";
 import { parseAmountToCents } from "@/lib/money";
 import { requireSession } from "@/lib/auth";
 import { refreshStalePrices } from "@/lib/portfolio/quotes";
+import { looksLikeIsin } from "@/lib/portfolio/prices";
 
 const tradeSchema = z.object({
   accountId: z.string().min(1),
@@ -45,9 +46,11 @@ export async function addTrade(formData: FormData): Promise<void> {
   const date = new Date(`${tradedAt}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return;
 
+  // An ISIN typed as the symbol is kept as the instrument's ISIN too, so the
+  // quote lookup can resolve it to a real listing.
   const instrument = await prisma.instrument.upsert({
     where: { symbol },
-    create: { symbol, name: symbol, kind: "ETF" },
+    create: { symbol, name: symbol, kind: "ETF", isin: looksLikeIsin(symbol) ? symbol : null },
     update: {},
   });
 
