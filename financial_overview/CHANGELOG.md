@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.2
+
+- **Add-on updates are a download now, not a build.** The Supervisor had no
+  `image:` to pull, so every version was compiled on the Home Assistant host:
+  `npm ci`, `prisma generate`, `next build` and `npm prune` on a machine that is
+  often a Pi. That is where the quarter of an hour went — the add-ons that
+  update in two minutes ship ready-made images and do none of it.
+  `.github/workflows/build-addon-image.yml` now builds both architectures on
+  GitHub and pushes them to GHCR, and `config.yaml` points at those images, so
+  updating fetches layers instead of compiling the app.
+- **Labels travel with the image.** The Supervisor normally stamps version and
+  architecture onto a build with `docker build --label`; a prebuilt image gets
+  none of that, so the runtime stage declares `io.hass.version`,
+  `io.hass.type` and `io.hass.arch` itself.
 ## 0.7.1
 
 - **The net-worth chart includes the house again.** The headline figure on the

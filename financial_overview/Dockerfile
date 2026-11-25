@@ -46,7 +46,20 @@ RUN npm prune --omit=dev \
  && find node_modules/better-sqlite3/prebuilds -name '*.node' ! -name 'linux-*' -delete
 
 # -- runtime -----------------------------------------------------------------
+# The add-on labels below are what the Supervisor normally writes itself, with
+# `docker build --label`, when it builds an add-on on the Home Assistant host.
+# Prebuilt images skip that step, so they have to be baked in here or the add-on
+# shows up without an architecture or a version. The workflow passes both values.
 FROM node:22-bookworm-slim AS runner
+ARG BUILD_VERSION=0.0.0
+ARG BUILD_ARCH=amd64
+LABEL io.hass.version="$BUILD_VERSION" \
+      io.hass.type="addon" \
+      io.hass.arch="$BUILD_ARCH" \
+      org.opencontainers.image.title="Financial Overview" \
+      org.opencontainers.image.description="Personal wealth, income and expense tracker" \
+      org.opencontainers.image.source="https://github.com/Yskaa91/FinancialOverview" \
+      org.opencontainers.image.licenses="MIT"
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \

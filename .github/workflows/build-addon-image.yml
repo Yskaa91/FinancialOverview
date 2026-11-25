@@ -1,0 +1,84 @@
+# Publishes the add-on image to GitHub Container Registry, so that installing or
+# updating it on Home Assistant is a `docker pull` and not a full build on the
+# Home Assistant host. Without this, every add-on update runs `npm ci`,
+# `next build` and `npm prune` on the box itself, which takes minutes on x86 and
+# far longer on a Pi.
+#
+# The image name carries the architecture (`...-amd64`, `...-aarch64`) because
+# Home Assistant's add-on config points at `image: ghcr.io/.../{arch}` and pulls
+# the tag matching the add-on version in `config.yaml`.
+name: build add-on image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "financial_overview/**"
+      - ".github/workflows/build-addon-image.yml"
+  # For a rebuild without touching the app, e.g. after changing a secret or a
+  # base image.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    strategy:
+      # Both architectures must publish: a half-released version would leave Pi
+      # users unable to update while x86 users already moved on.
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the add-on version
+        id: version
+        run: |
+          version="$(sed -n 's/^version: *"\(.*\)"/\1/p' financial_overview/config.yaml)"
+          test -n "$version" || { echo "no version in config.yaml" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # Take the image name from `config.yaml`, which is also what Home Assistant
+      # reads — one source of truth, so the published tag cannot drift from the
+      # name the add-on points at. `{arch}` is the placeholder Home Assistant
+      # substitutes; here it becomes the matrix entry.
+      - name: Resolve the image name
+        id: image
+        run: |
+          image="$(sed -n 's/^image: *//p' financial_overview/config.yaml | tr -d '" ' | tr '[:upper:]' '[:lower:]')"
+          test -n "$image" || { echo "no image in config.yaml" >&2; exit 1; }
+          echo "name=${image//\{arch\}/${{ matrix.arch }}}" >> "$GITHUB_OUTPUT"
+
+      # QEMU lets one x86 runner build the arm64 image. It is slower than a
+      # native arm runner, but it is also always available, and the runner cache
+      # below makes a rebuild of unchanged layers cheap.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: financial_overview
+          platforms: ${{ matrix.platform }}
+          push: true
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.version }}
+            BUILD_ARCH=${{ matrix.arch }}
+          tags: |
+            ${{ steps.image.outputs.name }}-${{ matrix.arch }}:${{ steps.version.outputs.version }}
+            ${{ steps.image.outputs.name }}-${{ matrix.arch }}:latest
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}

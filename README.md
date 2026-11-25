@@ -13,6 +13,11 @@ development. Either way the data is one SQLite file on your own machine.
 2. Add `https://github.com/Yskaa91/FinancialOverview`
 3. Install **Financial Overview**, start it, **Open Web UI**
 
+Updates pull a ready-made image from GitHub Container Registry, so they take
+about as long as any other add-on update. Versions up to 0.6.x had no image to
+pull and compiled the app on the Home Assistant host instead, which is why they
+took minutes.
+
 AI-assisted categorisation is optional and configured in the add-on options
 (provider, API key, model, call cap). Rules, merchant memory and manual picks
 work with no key at all. Everything else — statement formats, the review dialog,
@@ -58,6 +63,18 @@ npm run dev                    # http://localhost:3000
 | `npm test` | Vitest suite (importers, rules, AI prompts, portfolio maths) |
 | `npm run lint` / `npx tsc --noEmit` | ESLint and type check |
 | `npm run db:migrate` / `db:seed` / `db:studio` | Prisma migrate, demo data, data browser |
+
+### Releasing
+
+Bump `version` in `financial_overview/config.yaml` and push to `main`.
+`.github/workflows/build-addon-image.yml` builds both architectures and pushes
+`ghcr.io/yskaa91/financial-overview-<arch>:<version>`; the Supervisor pulls that
+tag once the add-on store sees the new version. Two things must hold:
+
+- the workflow can write packages (`packages: write`, which it declares);
+- the GHCR package is **public** — GitHub → your profile → Packages → the
+  package → *Package settings* → *Change visibility*. A private package makes the
+  update fail with an authentication error, and nothing in the repo can flip it.
 
 ## How it decides a category
 

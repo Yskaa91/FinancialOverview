@@ -75,6 +75,20 @@ add-on options (/data/options.json)
   at build time), so the add-on publishes port 3000 and uses `webui` instead: the
   sidebar entry opens the UI in a new tab. This is a deliberate trade of sidebar
   embed for a working app.
+- **The image is prebuilt, so updating is a pull.** `config.yaml` carries
+  `image: ghcr.io/yskaa91/financial-overview-{arch}`, which makes the Supervisor
+  fetch `ghcr.io/yskaa91/financial-overview-amd64:<version>` instead of running
+  the Dockerfile on the Home Assistant host. Without it, every update compiled
+  the app there (`npm ci`, `prisma generate`, `next build`, `npm prune`), which is
+  minutes on x86 and much more on a Pi. `.github/workflows/build-addon-image.yml`
+  builds both architectures with buildx/QEMU and pushes `<arch>-<version>` and
+  `<arch>-latest`; the version it tags comes from `config.yaml`, and so does the
+  image name, so the two cannot drift. The Dockerfile stays buildable on its own
+  for a local build, which is what the workflow uses.
+- **The add-on labels are baked into the image.** `io.hass.version`,
+  `io.hass.type` and `io.hass.arch` are normally passed with
+  `docker build --label` by the Supervisor; a pulled image has to declare them
+  itself, so the runtime stage takes `BUILD_VERSION` and `BUILD_ARCH` build args.
 - **The base image is pinned in the Dockerfile, not read from `BUILD_FROM`.** A
   first build resolved `BUILD_FROM` to the Alpine Home Assistant base despite
   `build.yaml`, where `apt-get` does not exist — and Alpine would also break the
@@ -96,10 +110,15 @@ add-on options (/data/options.json)
   `.next/cache` (Turbopack's rebuild cache). Together about 170 MB less to pull
   and unpack per install or update: ~1.10 GB of runtime tree before, ~933 MB
   after, measured locally.
-- **No compiler toolchain.** `better-sqlite3` ships prebuilds for linux-x64 and
-  linux-arm64 and Prisma ships its engines, so `npm ci` never runs node-gyp and
-  the `python3 make g++` layer went away. A dependency that does need to compile
-  has to add it back to the `deps` stage.
+- **No compiler toolchain, and no compiling.** `npm ci --ignore-scripts` keeps
+  npm from treating `better-sqlite3`'s `binding.gyp` as "build me with node-gyp"
+  (it has no install script, so npm's default applies) and the package then loads
+  the prebuilt `prebuilds/linux-<arch>.node` it ships. An `overrides` entry keeps
+  a single `better-sqlite3`, so the Prisma adapter uses that prebuilt copy as
+  well instead of its own 12.x, which has no prebuilds. `npm rebuild
+  @prisma/engines` runs the one install script that matters: the migration
+  engine download. A dependency that genuinely needs to compile has to bring back
+  `python3 make g++` in the `deps` stage.
 - **Not done: Next.js `output: "standalone"`.** It would cut most of the ~700 MB
   of `node_modules`, but `run.sh` needs the Prisma CLI for migrations, and that
   CLI pulls `@prisma/studio-core` and `@prisma/dev` at load time (verified: the
