@@ -77,7 +77,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
             ? "AI is off. Set AI_PROVIDER=mistral and AI_API_KEY in .env.local, then restart the server."
             : first(sp.aiError)
               ? `AI request failed (${first(sp.aiError)}). Nothing was changed; rows stay in the queue.`
-              : `${first(sp.suggested) ?? 0} suggestions added, ${first(sp.cached) ?? 0} from merchant memory, ${first(sp.calls) ?? 0} API calls. Confirm them below — suggested is not applied.`}
+              : `${first(sp.suggested) ?? 0} suggestions added, ${first(sp.calls) ?? 0} API calls. Confirm them below — suggested is not applied.`}
         </div>
       )}
 

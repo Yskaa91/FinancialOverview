@@ -80,7 +80,7 @@ src/
       normalize.ts             # merchant extraction, description cleanup, hash
     categorize/
       rules.ts                 # priority chain, rule application, rule learning
-      ai.ts                    # batched LLM suggestions, provider adapters
+      ai.ts                    # batched LLM proposals, per merchant group
     portfolio/
       trades.ts                # FIFO positions, realized/unrealized P/L (pure)
       prices.ts                # manual prices + optional Stooq fetch, TTL cache
@@ -155,11 +155,21 @@ upload(accountId, file)
                                              counterparty, iban, merchant,
                                              balanceAfter, rawJson)
   → hash → dedupe against DB and inside the file
-  → PREVIEW (counts, date range, sum, duplicates, first rows)   [step 2, no write]
-  → COMMIT in one SQLite transaction: Statement + Transactions
-  → categorise (rules + merchant map, then optional AI batch)
-  → report: imported N, duplicates M, needs review K               [step 3]
+  → PREVIEW stored in Setting; nothing is written yet              [step 2]
+  → REVIEW DIALOG (one modal, two tables):
+        rule-matched rows, and rows nothing matched, grouped per merchant
+        → optional "Suggest with AI": proposals for unmatched groups only
+        → the user approves categories, and rules for recurring merchants
+  → COMMIT in one SQLite transaction: Statement + Transactions + learned Rules
+  → categorise any row left empty (rules + merchant map)
+  → report: imported N, duplicates M, new rules K                  [step 3]
 ```
+
+The review step is the whole point of the flow: rules decide what they can, the
+AI only fills what is left, and the user sees both before a single row is
+written. Classification happens in memory against the parsed rows
+(`lib/review/classify.ts`), never against committed data, which is why the dialog
+can be opened and closed without side effects.
 
 Normalisation rules shared by all parsers (`lib/import/normalize.ts`). The exact
 per-source details, with evidence, are in `docs/IMPORT-FORMATS.md`:
@@ -198,45 +208,93 @@ unstable.
 
 ## 6. Categorisation
 
-Resolution order when displaying or aggregating a transaction:
+Predictability first: **rules are the durable mechanism, AI is a one-off helper.**
+The user has to be able to look at a rule list and know what happens to the next
+statement.
+
+### Resolution order
 
 1. **Manual** — `categorySource = MANUAL` is final; nothing overwrites it.
 2. **Merchant map** — exact `merchantKey` hit (source of all automatic wins).
 3. **Rules** — ordered by `priority`, first match wins; can be scoped to one
    account and to an amount band.
-4. **AI suggestion** — stored as `reviewState = SUGGESTED` with a confidence.
-   It is shown but counts as uncategorised until confirmed. One confirmation
-   writes `MerchantMap`, so the same merchant never costs a second call.
-5. **Uncategorised** — visible as a badge count, drives the review mode.
+4. **Uncategorised** — a badge count, and the rows the review dialog exists for.
 
-Learning loop: every manual assignment on a transaction with a merchant key
-upserts `MerchantMap` and offers "apply to all N similar" as one button
-(bulk update of existing rows with the same key). Nothing is auto-applied
-retroactively without that click.
+### Review dialog (`/import`)
 
-AI layer (`lib/categorize/ai.ts`): Mistral chat completions
-(`ai/v1/chat/completions`), so any OpenAI-shaped endpoint works by changing the
-base URL. Written for cheap models, because per-row cost is what decides whether
-this feature is worth having:
+After a file parses, one large modal opens with two tables. Nothing is written
+until the user commits.
 
-- **Prompt**: one system line plus one line per transaction. Categories are
-  sent as numbers (`1=Groceries; 2=Rent`), answers are numbers, `0` means
-  unsure. A 40-row batch is a few hundred tokens, not a few thousand.
-- **Output**: `response_format: json_object`, `temperature: 0`, so the reply is
-  `{"r":[{"i":1,"c":2}]}`. The reader tolerates fences, a bare array and
-  trailing commas, and drops out-of-range entries instead of guessing.
-- **Guards**: batches of 40, `AI_MAX_BATCHES` (default 5) calls per run, and a
-  20-second timeout. Only merchant text and amounts are sent — never IBANs,
-  account names or balances.
-- **Cache**: a suggestion is remembered per merchant in `MerchantMap` with
-  `source = "AI"`. Those entries fill later suggestions for free but are
-  excluded from the rule engine, so a cached guess never applies itself.
-- **Semantics**: everything lands as `reviewState = SUGGESTED` with
-  `categorySource = AI`. Confirming it writes a `MANUAL` merchant entry; running
-  the rules afterwards can still overwrite a suggestion, because rules rank
-  above AI.
+| Table | Contents | What the user can do |
+| --- | --- | --- |
+| Needs a category (top) | rows no rule or merchant entry matched, grouped **per merchant** | pick a category per merchant, expand to see the individual rows, tick "create a rule" |
+| Matched by rules (below) | rows that already have a category | see which rule fired, override the category if it is wrong |
 
-The app is fully functional with `AI_PROVIDER=none`.
+Grouping per merchant is what makes this usable: 200 rows become a handful of
+decisions, and one decision covers every row of that shop in the statement.
+
+"Suggest with AI" fills the selects of the unmatched groups and, for recurring
+merchants only, offers a rule per merchant in a third block. "Approve all
+suggestions" accepts everything in one click; anything untouched stays exactly
+as it was, so the dialog is safe to ignore.
+
+### The recurrence gate
+
+The AI never decides what becomes a rule. `lib/categorize/recurrence.ts` does:
+
+- a merchant earns a rule only when it appears at least `MIN_HITS_FOR_RULE`
+  (default 3) times within the last 12 months, counting already-imported rows
+  plus the rows in this statement;
+- a florist visited twice a year therefore gets a category for those two rows and
+  **no rule**, so the rule list does not fill up with noise;
+- a shop visited weekly gets a rule, so the next statement needs no clicks and no
+  API call.
+
+Accepted rules are written with `origin = LEARNED` and `priority = 100`, and an
+identical `(matchOn, operator, pattern, categoryId)` rule is never created twice.
+
+### AI layer (`lib/categorize/ai.ts`)
+
+Mistral chat completions (`api.mistral.ai/v1/chat/completions`), so any
+OpenAI-shaped endpoint works by changing the base URL. Written for cheap models,
+because per-row cost decides whether the feature is worth having:
+
+- **Granularity**: one line per *merchant group*, not per transaction, with a
+  `|3x` marker when the group has several rows. A 200-row statement is usually a
+  few dozen groups.
+- **Prompt**: two sentences plus `n=Category` names, `0` = unsure, JSON reply
+  `{"r":[{"i":1,"c":2}]}`. Around 330 characters plus the category names.
+- **Reader**: tolerates fences, a bare array, trailing commas and `i:0` (some
+  models use it as "skip"), falls back to positional mapping when the reply has
+  exactly one entry per line, and drops out-of-range answers instead of guessing.
+- **Guards**: `AI_BATCH_SIZE` groups per call, `AI_MAX_BATCHES` (default 5) calls
+  per run, 20-second timeout, `temperature: 0`, `response_format: json_object`.
+  A failed request reports `request-failed` and changes nothing.
+- **Privacy**: only merchant/description text, the group total and the row count
+  are sent. Never IBANs, account names or balances.
+
+### Semantics of what gets written
+
+| Situation | `categorySource` | `reviewState` |
+| --- | --- | --- |
+| rule or merchant map matched, user did not touch it | `RULE` | `OK` |
+| user picked a category the AI proposed | `AI` | `OK` |
+| user picked something else | `MANUAL` | `OK` |
+| user left it undecided | `NONE` | `UNCATEGORIZED` |
+
+An AI answer only ever *becomes* a row category because a human approved it in
+the dialog; there is no background run that changes data. The old `MerchantMap`
+AI cache is gone: a guess never enters the memory the rule engine reads.
+
+### Rules editor
+
+`Settings → Rules → Manage rules` opens the same modal primitive with every rule
+editable in place: name, match target, operator, pattern, category, priority and
+enabled, plus read-only hits and origin so the user can see what actually fires.
+A row whose `REGEX` pattern does not compile is flagged and cannot be saved.
+
+The app is fully functional with `AI_PROVIDER=none`; the dialog then simply never
+offers the AI button.
 
 ## 7. Portfolio and valuation
 
@@ -321,13 +379,14 @@ transaction; backups are a file copy of `prisma/dev.db`.
 | 1 | Accounts CRUD, categories CRUD, settings, money/format helpers |
 | 2 | ASN importer end to end + transactions table + dedupe |
 | 3 | PayPal and ICS importers, transfer pairing |
-| 4 | Rules engine, merchant learning, AI suggestions, review mode |
+| 4 | Rules engine, merchant learning, review dialog, AI rule proposals |
 | 5 | Trades, FIFO, prices, broker account page |
 | 6 | Dashboard aggregates and charts, balance history |
 | 7 | Export, backup, polish |
 
 Done: 0, 1, 2, 3, 4, 5, 6 (charts on the dashboard, net worth and cashflow
-history). Not started: 7, plus the optional AI provider call and CAMT.053.
+history) and the optional AI provider call in the import review. Not started: 7,
+plus CAMT.053.
 
 ## 13. Known risks and shortcuts
 
@@ -351,3 +410,12 @@ history). Not started: 7, plus the optional AI provider call and CAMT.053.
 - **Parsers drift.** Export formats change without notice. Each parser throws a
   typed error with the offending header list, so the fix is one file and one
   fixture.
+- **A learned rule can be too broad.** `MERCHANT contains "PRIMARK"` is right;
+  `contains "AMSTERDAM"` would not be. Rules are editable in one popup and every
+  rule shows its hit count, so a bad rule is visible and cheap to fix. Nothing
+  creates a rule from a *description* pattern automatically.
+- **Cheap models get ambiguous merchants wrong.** The suggestion arrives
+  pre-selected but unapproved, and `c: 0` is respected as "no idea", so a wrong
+  guess costs one click. It never becomes a rule for a one-off merchant.
+- **The AI key is only checked on use.** A wrong key surfaces as
+  `request-failed` in the dialog, not at boot; the import itself is unaffected.

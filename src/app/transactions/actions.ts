@@ -8,7 +8,7 @@ import {
   categoriseUncategorised,
   confirmCategory,
 } from "@/lib/categorize/rules";
-import { isAiConfigured, suggestCategoriesForUncategorised } from "@/lib/categorize/ai";
+import { isAiConfigured, suggestForUncategorised } from "@/lib/categorize/ai";
 import { redirect } from "next/navigation";
 
 const setSchema = z.object({
@@ -66,10 +66,10 @@ export async function markAsTransfer(formData: FormData): Promise<void> {
 export async function suggestWithAi(): Promise<void> {
   if (!isAiConfigured()) redirect("/transactions?ai=off");
 
-  const run = await suggestCategoriesForUncategorised();
+  const run = await suggestForUncategorised();
   revalidatePath("/transactions");
   revalidatePath("/");
   redirect(
-    `/transactions?review=1&suggested=${run.suggested}&cached=${run.fromCache}&calls=${run.calls}${run.error ? `&aiError=${run.error}` : ""}`,
+    `/transactions?review=1&suggested=${run.suggested}&calls=${run.calls}${run.error ? `&aiError=${run.error}` : ""}`,
   );
 }

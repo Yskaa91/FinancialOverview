@@ -86,6 +86,42 @@ export async function createRule(formData: FormData): Promise<void> {
   revalidatePath("/transactions");
 }
 
+const ruleUpdateSchema = ruleSchema.extend({
+  id: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+/** A user-supplied regex must compile before it is stored; the engine also guards at match time. */
+function compiles(pattern: string): boolean {
+  try {
+    new RegExp(pattern, "i");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Edits one rule in place. Invalid input changes nothing, same as createRule. */
+export async function updateRule(formData: FormData): Promise<void> {
+  const parsed = ruleUpdateSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+    matchOn: formData.get("matchOn"),
+    operator: formData.get("operator"),
+    pattern: formData.get("pattern"),
+    categoryId: formData.get("categoryId"),
+    priority: formData.get("priority") ?? 100,
+    enabled: formData.get("enabled") === "on",
+  });
+  if (!parsed.success) return;
+  if (parsed.data.operator === "REGEX" && !compiles(parsed.data.pattern)) return;
+
+  const { id, ...data } = parsed.data;
+  await prisma.rule.update({ where: { id }, data });
+  revalidatePath("/settings");
+  revalidatePath("/transactions");
+}
+
 export async function toggleRule(formData: FormData): Promise<void> {
   const id = formData.get("ruleId");
   if (typeof id !== "string" || !id) return;

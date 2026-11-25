@@ -1,15 +1,9 @@
 import { Card, PageHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { ACCOUNT_TYPE_LABELS, CATEGORY_KINDS, RULE_MATCH_ON, RULE_OPERATORS } from "@/lib/types";
+import { ACCOUNT_TYPE_LABELS, CATEGORY_KINDS } from "@/lib/types";
 import { AI_MAX_BATCHES, AI_MODEL, isAiConfigured } from "@/lib/categorize/ai";
-import {
-  createCategory,
-  createRule,
-  deleteCategory,
-  deleteRule,
-  forgetMerchant,
-  toggleRule,
-} from "./actions";
+import { RulesEditor } from "./rules-editor";
+import { createCategory, deleteCategory, forgetMerchant } from "./actions";
 
 // Reads the database on every request; nothing here is safe to prerender.
 export const dynamic = "force-dynamic";
@@ -110,111 +104,10 @@ export default async function SettingsPage() {
         </Card>
 
         <Card title="Rules">
-          <form action={createRule} className="mb-3 grid gap-2 sm:grid-cols-2">
-            <input
-              name="name"
-              required
-              maxLength={60}
-              placeholder="Rule name"
-              aria-label="Rule name"
-              className="rounded border border-border bg-background px-2 py-1.5 text-sm sm:col-span-2"
-            />
-            <select
-              name="matchOn"
-              defaultValue="MERCHANT"
-              aria-label="Match on"
-              className="rounded border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              {RULE_MATCH_ON.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select
-              name="operator"
-              defaultValue="CONTAINS"
-              aria-label="Operator"
-              className="rounded border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              {RULE_OPERATORS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-            <input
-              name="pattern"
-              required
-              maxLength={120}
-              placeholder="Pattern"
-              aria-label="Pattern"
-              className="rounded border border-border bg-background px-2 py-1.5 text-sm sm:col-span-2"
-            />
-            <select
-              name="categoryId"
-              required
-              aria-label="Category"
-              className="rounded border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <input
-              name="priority"
-              type="number"
-              min={1}
-              max={999}
-              defaultValue={100}
-              aria-label="Priority"
-              className="tabular rounded border border-border bg-background px-2 py-1.5 text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded border border-border px-2 py-1.5 text-sm hover:bg-surface-muted sm:col-span-2"
-            >
-              Add rule
-            </button>
-          </form>
-
-          <ul className="max-h-72 divide-y divide-border overflow-y-auto text-[13px]">
-            {rules.length === 0 && <li className="py-2 text-muted">No rules yet.</li>}
-            {rules.map((r) => (
-              <li key={r.id} className="py-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="min-w-0">
-                    <span className={`block truncate ${r.enabled ? "" : "text-muted line-through"}`}>
-                      {r.name}
-                    </span>
-                    <span className="block text-[11px] text-muted">
-                      {r.matchOn.toLowerCase()} {r.operator.toLowerCase()} “{r.pattern}” →{" "}
-                      {categoryById.get(r.categoryId)?.name ?? "?"} · p{r.priority} · {r.hits} hits
-                    </span>
-                  </span>
-                  <span className="flex shrink-0 gap-2">
-                    <form action={toggleRule}>
-                      <input type="hidden" name="ruleId" value={r.id} />
-                      <button type="submit" className="text-[11px] text-muted underline">
-                        {r.enabled ? "disable" : "enable"}
-                      </button>
-                    </form>
-                    <form action={deleteRule}>
-                      <input type="hidden" name="ruleId" value={r.id} />
-                      <button
-                        type="submit"
-                        className="text-[11px] text-muted underline hover:text-negative"
-                      >
-                        remove
-                      </button>
-                    </form>
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <RulesEditor
+            rules={rules}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          />
         </Card>
 
         <Card title="Merchant memory">

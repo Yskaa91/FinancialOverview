@@ -2,7 +2,7 @@
 
 Personal overview of wealth, income and expenses. Runs locally, on one machine,
 with a single SQLite file. Imports from ASN, PayPal and ICS, automatic
-categorisation with rules and (optionally) AI, and manually tracked ETF positions.
+categorisation with rules and (optionally) AI proposals you approve, and manually tracked ETF positions.
 
 Status: **working prototype**. Accounts, statements from all three sources with
 preview and idempotent commit, rule engine with merchant learning, review queue,
@@ -48,7 +48,7 @@ known state.
 | `/` | Dashboard: net worth, 30-day delta, monthly figures, largest categories, needs a category |
 | `/transactions` | Income & expenses: filter, inline category picker, review queue, run rules |
 | `/accounts` | Accounts: balance per account; detail page with transactions, imports and, for broker accounts, holdings and the trade log |
-| `/settings` | Category and rule management, merchant memory, AI and price status |
+| `/settings` | Categories, the rules editor popup, merchant memory, AI and price status |
 | `/import` | Three-step wizard: upload, check the preview, commit (not a tab) |
 
 ## Documentation
@@ -79,10 +79,13 @@ AI_MODEL=mistral-small-latest   # any cheap chat model
 AI_MAX_BATCHES=5                # 5 calls x 40 transactions per run
 ```
 
-With that set, uncategorised rows get a suggestion after every import, and the
-review queue has a "Suggest with AI" button. A suggestion is **never applied
-without a click**; confirming one teaches the merchant, so the same shop costs
-no further calls. Only merchant text and amounts leave the machine.
+With that set, the import review dialog grows a **Suggest with AI** button. It
+fills the categories of the merchants no rule matched, and proposes a *rule* for
+the merchants that recur (default 3 visits in 12 months, `MIN_HITS_FOR_RULE`).
+A one-off florist gets a category and no rule; a weekly shop gets a rule, so the
+next statement needs neither a click nor an API call. Nothing is applied until
+you approve it, and the rules stay the predictable part of the system. Only
+merchant text, the group total and a row count leave the machine.
 
 All copy is English. Amounts and dates still render in the Dutch convention
 (€ 1.234,56 and 31-01-2026) because that matches the source statements; the
