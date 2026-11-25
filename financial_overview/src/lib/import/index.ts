@@ -32,13 +32,23 @@ export function detectSource(filename: string, text: string): StatementSource | 
   const clean = text.replace(/^\uFEFF/, "");
   const name = filename.toLowerCase();
   const head = clean.split(/\r?\n/).slice(0, 4).join("\n");
+  const firstLine = clean.split(/\r?\n/, 1)[0] ?? "";
 
   if (/transactiedatum/i.test(head) && /debit\s*\/\s*credit/i.test(head)) return "ICS";
-  if (/\b(date|datum)\b/i.test(head) && /\b(net|netto|bruto|gross)\b/i.test(head)) return "PAYPAL";
 
-  // ASN has no header. A dd-mm-yyyy first field in a full-width row is all the
-  // signal there is.
-  const firstLine = clean.split(/\r?\n/, 1)[0] ?? "";
+  // PayPal's Activity Download always carries a header row, so sniff it in that
+  // row alone: "Bruto" also appears in the free text of an ASN narrative.
+  if (
+    /\b(date|datum)\b/i.test(firstLine) &&
+    /\b(net|netto|bruto|gross)\b/i.test(firstLine) &&
+    /\b(status|tijd|time)\b/i.test(firstLine)
+  ) {
+    return "PAYPAL";
+  }
+
+  // ASN: a dd-mm-yyyy first field in a full-width row, or the header row that
+  // recent exports put above it (positions unchanged).
+  if (/^(datum|boekingsdatum),/i.test(firstLine) && /je rekening/i.test(firstLine)) return "ASN";
   if (/^\d{1,2}-\d{1,2}-\d{4}/.test(firstLine) && (firstLine.match(/[,;]/g)?.length ?? 0) >= 17) {
     return "ASN";
   }

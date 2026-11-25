@@ -26,7 +26,7 @@ CSV characteristics (DOC unless tagged):
 | Extension / name | `.CSV`, `<last10 of IBAN>_<ddmmyyyy>_<volgnummer 8>.CSV` |
 | Encoding | "leesbare ASCII"; accept `cp1252` with `utf-8-sig` fallback |
 | Delimiter | `,` default, `;` variant exists (COMM) |
-| Header row | **none** (COMM) — map by position |
+| Header row | two variants (COMM): older files have **none** — map by position; a 2026 export labels the same 20 positions: `Datum, Je rekening, Van / naar, Naam, Adres, Postcode, Woonplaats, Valuta saldo, Saldo voor boeking, Valuta, Bedrag bij / af, Verwerkingsdatum, Valutadatum, Code, Type, Volgnummer, Betalingskenmerk, Omschrijving, Afschriftnummer, Categorie`. `Datum` + `Je rekening` identifies it; drop the row, positions are unchanged |
 | Quoting | comma variant wraps the narrative in **single quotes `'…'`**; semicolon variant wraps every field in `"…"` (DOC/CODE) |
 | Embedded newlines | possible inside `Omschrijving` — join field lines before parsing (CODE) |
 | Decimal separator | **`.`**, no thousands separator |
@@ -60,6 +60,11 @@ silently. ASN also ships a **`Categorie`** column of its own — keep it in
 Sources: ASN "Uitleg transactieoverzicht in ASN Online Bankieren" (30-09-2025);
 ASN CAMT.053 page; 2016 export spec mirror; `gpaulissen/ofxstatement-dutch`
 plugin `nl-asn`; `cwverhey/HomeBankCSV` (delimiter/quote/newline handling).
+
+**Detection.** A dd-mm-yyyy first field in a full-width row, or the labelled header
+above it, means ASN. Never sniff ASN from `Datum` + a money word: `Bruto` appears
+inside ASN narratives ("… Betaling 11.2026 … Bruto 1.875 …"), which once sent a
+whole ASN file to the PayPal parser. PayPal is sniffed from its header line only.
 
 ## 2. PayPal
 

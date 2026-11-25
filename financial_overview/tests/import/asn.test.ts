@@ -110,3 +110,23 @@ describe("ASN header", () => {
     expect(() => parseStatement("ASN", "")).toThrow(/no rows in file/);
   });
 });
+
+// Newer exports put a Dutch header above the same 20 positions. One narrative
+// says "Bruto", which used to be enough to sniff the whole file as PayPal.
+describe("ASN labelled header", () => {
+  const result = parseFixture("asn-header.csv");
+
+  it("is detected as ASN and not as PayPal", () => {
+    expect(result.source).toBe("ASN");
+    expect(detectSource("afschrift.csv", fixtureText("asn-header.csv"))).toBe("ASN");
+  });
+
+  it("drops the header row instead of rejecting it", () => {
+    expect(result.rows).toHaveLength(2);
+    expect(result.rejected).toEqual([]);
+  });
+
+  it("keeps the signed amounts", () => {
+    expect(result.rows.map((row) => row.amountCents)).toEqual([172359, -1250]);
+  });
+});

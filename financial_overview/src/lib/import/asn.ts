@@ -23,15 +23,19 @@ export function parseAsn(text: string): ParseResult {
   const first = records[0];
   if (!first) throw new ImportFormatError("ASN", "no rows in file", []);
 
-  // ASN ships no header row. If one appears, the format changed: stop here.
+  // Older ASN exports ship no header row at all. If one appears, the format
+  // changed: stop here.
   if (first.fields.some((field) => /^(boekingsdatum|transactiebedrag)$/i.test(field.trim()))) {
     throw new ImportFormatError("ASN", "unexpected header row in a header-less format", first.fields);
   }
 
+  // Recent exports label the same 20 positions, so drop that row and keep going.
+  const labelled = /^(datum|boekingsdatum)$/i.test(first.fields[0]?.trim() ?? "");
+
   const rows: NormalizedRow[] = [];
   const rejected: ParseResult["rejected"] = [];
 
-  for (const { line, fields } of records) {
+  for (const { line, fields } of labelled ? records.slice(1) : records) {
     if (fields.length < MIN_FIELDS) {
       rejected.push({ line, reason: `expected ${FIELD_COUNT} fields, got ${fields.length}` });
       continue;
