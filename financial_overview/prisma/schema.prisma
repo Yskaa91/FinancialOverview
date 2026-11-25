@@ -196,7 +196,10 @@ model Property {
   id                  String    @id @default(cuid())
   label               String?
   address             String
-  // CBS region ("GM0363" for Amsterdam) plus the name it had when it was added
+  // Country of the home: NL values per municipality through CBS, every other
+  // European country through Eurostat's national index.
+  country             String    @default("NL")
+  // CBS region ("GM0363" for Amsterdam), or the country code outside the NL
   regionCode          String
   regionName          String
   purchasePriceCents  Int

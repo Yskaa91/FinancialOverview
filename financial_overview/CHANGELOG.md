@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- **Homes anywhere in Europe.** The real estate tab takes a country now: inside
+  the Netherlands a home is still valued from the CBS index for its municipality,
+  everywhere else from Eurostat's national quarterly House Price Index. The
+  municipality field is only used for the Netherlands.
+- Two letter codes are the only thing that reaches Eurostat; the address stays
+  local, and the whole lookup still follows the `price_fetch` switch.
+- Existing homes keep their data and keep using CBS — the migration adds the
+  country column with `NL` as its default.
+
 ## 0.5.0
 
 - **Real estate.** A new tab adds a home with its address, municipality, purchase

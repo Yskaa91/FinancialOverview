@@ -3,6 +3,7 @@ import { formatCents, formatCentsSigned } from "@/lib/money";
 import { formatDay } from "@/lib/dates";
 import { listProperties, refreshPropertyValues, totalsOf } from "@/lib/queries/property";
 import { INDEX_SCALE_1E6 } from "@/lib/property/valuation";
+import { COUNTRIES } from "@/lib/property/countries";
 import { requireSession } from "@/lib/auth";
 import { addProperty, deleteProperty, refreshProperties } from "./actions";
 
@@ -13,6 +14,7 @@ const ERRORS: Record<string, string> = {
   price: "That purchase price is not a number.",
   date: "That purchase date is not a date.",
   "unknown-region": "CBS does not know that municipality. Check the spelling, or name the province.",
+  "unknown-country": "Pick one of the countries in the list.",
 };
 
 const index = (micro: number | null) =>
@@ -92,15 +94,30 @@ export default async function PropertyPage({
               />
             </label>
             <label className="text-xs">
-              <span className="mb-1 block text-muted">Municipality</span>
+              <span className="mb-1 block text-muted">Country</span>
+              <select
+                name="country"
+                defaultValue="NL"
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+              >
+                {COUNTRIES.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs">
+              <span className="mb-1 block text-muted">Municipality (Netherlands only)</span>
               <input
                 name="region"
-                required
                 placeholder="Amsterdam"
                 className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
               />
               <span className="mt-1 block text-[11px] text-muted">
-                Only this name is sent to CBS, never the address.
+                Inside the Netherlands values follow the municipality; elsewhere the
+                country&apos;s national index. Only that name or the country code is
+                sent, never the address.
               </span>
             </label>
             <label className="text-xs">

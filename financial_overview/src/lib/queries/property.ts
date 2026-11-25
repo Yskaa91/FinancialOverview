@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { fetchIndexSeries } from "@/lib/property/cbs";
+import { hasMunicipalities } from "@/lib/property/countries";
+import { fetchCountryIndexSeries } from "@/lib/property/eurostat";
 import {
   estimateValueCents,
   indexAtPeriod,
@@ -16,6 +18,7 @@ export type PropertyRow = {
   id: string;
   label: string | null;
   address: string;
+  country: string;
   regionCode: string;
   regionName: string;
   purchasePriceCents: number;
@@ -42,9 +45,19 @@ export function totalsOf(properties: PropertyRow[]) {
 }
 
 /**
+ * Index series for one home: the CBS municipality index inside the Netherlands,
+ * Eurostat's national index everywhere else. Cached by the caller, once per run.
+ */
+async function seriesFor(property: PropertyRow): Promise<IndexPoint[]> {
+  return hasMunicipalities(property.country)
+    ? fetchIndexSeries(property.regionCode)
+    : fetchCountryIndexSeries(property.country);
+}
+
+/**
  * Refreshes the estimate of every home whose figures are older than a day. The
- * index series is fetched once per region per run, and nothing is looked up when
- * `PRICE_FETCH` is off (the same switch that governs share prices).
+ * index series is fetched once per region or country per run, and nothing is
+ * looked up when `PRICE_FETCH` is off (the same switch that governs share prices).
  */
 export async function refreshPropertyValues(options: { force?: boolean } = {}): Promise<number> {
   if (!priceFetchEnabled()) return 0;
@@ -53,7 +66,7 @@ export async function refreshPropertyValues(options: { force?: boolean } = {}): 
   if (properties.length === 0) return 0;
 
   const now = Date.now();
-  const seriesByRegion = new Map<string, IndexPoint[]>();
+  const seriesCache = new Map<string, IndexPoint[]>();
   let updated = 0;
 
   for (const property of properties) {
@@ -63,10 +76,13 @@ export async function refreshPropertyValues(options: { force?: boolean } = {}): 
       property.estimatedValueCents !== null;
     if (!options.force && fresh) continue;
 
-    let series = seriesByRegion.get(property.regionCode);
+    const cacheKey = hasMunicipalities(property.country)
+      ? `CBS:${property.regionCode}`
+      : `EUROSTAT:${property.country}`;
+    let series = seriesCache.get(cacheKey);
     if (!series) {
-      series = await fetchIndexSeries(property.regionCode);
-      seriesByRegion.set(property.regionCode, series);
+      series = await seriesFor(property);
+      seriesCache.set(cacheKey, series);
     }
     if (series.length === 0) continue;
 

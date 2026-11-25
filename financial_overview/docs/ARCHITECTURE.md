@@ -168,8 +168,9 @@ Instrument     id, symbol, isin?, name, kind(ETF|STOCK|BOND|CASH),
 Trade          id, accountId, instrumentId, side(BUY|SELL), tradedAt,
                quantityMicro, priceCents, feeCents, currency, note?
                -- positions are derived; never stored
-Property       id, label?, address, regionCode(CBS RegioS, e.g. GM0363),
-               regionName, purchasePriceCents, purchasedAt,
+Property       id, label?, address, country(NL, DE, …), regionCode(CBS RegioS
+               e.g. GM0363, else the country code), regionName,
+               purchasePriceCents, purchasedAt,
                estimatedValueCents?, indexAtPurchaseMicro?, indexLatestMicro?,
                indexPeriod?, valueFetchedAt?
                -- value follows the regional index; never typed in
@@ -196,10 +197,12 @@ Key decisions:
 - **A home is not an account.** `Property` stands on its own and is added to
   assets and net worth by the dashboard query, so it never shows up in the
   accounts list or in the import flow. Its value is an estimate: the purchase
-  price moved by the CBS price index of its municipality (table `85792NED`,
-  2020 = 100), from the purchase quarter to the newest one. Only the municipality
-  name or code is sent to CBS; the address stays local. Half a year of drift is
-  expected — a single address is not a municipality average.
+  price moved by a regional house-price index from the purchase quarter to the
+  newest one: inside the Netherlands the CBS municipality index (table `85792NED`,
+  2020 = 100), everywhere else Eurostat's national quarterly House Price Index
+  (`prc_hpi_q`, 2015 = 100, all dwellings). Only a municipality name or a
+  two-letter country code leaves the machine; the address stays local. Drift is
+  expected — a single address is not a municipal or national average.
 
 ## 5. Import pipeline
 
@@ -430,8 +433,8 @@ delete a trade, set a price by hand, and read holdings value, unrealised P/L,
 realised P/L and cash for the whole app. Numbers come from `getPortfolio()` per
 account, so this page and `/accounts/[id]` can never disagree.
 
-**Real estate `/property`** — add a home (address, municipality, purchase price
-and date), see the estimated value, what was paid and the change, with the index
+**Real estate `/property`** — add a home (address, country, municipality inside
+the Netherlands, purchase price and date), see the estimated value, what was paid and the change, with the index
 figures it came from; delete a home and refresh the index on demand. The estimate
 refreshes at most once a day when the page opens, and the total joins net worth
 on the dashboard.
@@ -490,11 +493,12 @@ start in that case.
 
 ### Outbound calls
 
-Only three things leave the machine, each through a switch that is off by
-default: share tickers to Yahoo Finance (share prices), a municipality name or
-CBS region code to CBS StatLine (house-price index), and merchant text, group
-totals and row counts to the configured AI provider (category suggestions). The
-house address, account names, IBANs and balances never do.
+Only a few things leave the machine. Share tickers go to Yahoo Finance (share
+prices) and are off unless `PRICE_FETCH` is on; a municipality name or CBS region
+code to CBS StatLine, or a two-letter country code to Eurostat (house-price
+index), under the same switch; merchant text, group totals and row counts go to
+the configured AI provider (category suggestions). The house address, account
+names, IBANs and balances never do.
 
 ### Request handling
 
