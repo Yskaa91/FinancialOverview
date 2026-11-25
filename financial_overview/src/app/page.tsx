@@ -7,11 +7,13 @@ import { cashflowSeries, netWorthSeries } from "@/lib/queries/history";
 import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { CashflowBars } from "@/components/charts/cashflow-bars";
 import { CategoryPie } from "@/components/charts/category-pie";
+import { requireSession } from "@/lib/auth";
 
 // Reads the database on every request; nothing here is safe to prerender.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requireSession();
   const [data, netWorth, cashflow] = await Promise.all([
     getDashboard(),
     netWorthSeries(12),

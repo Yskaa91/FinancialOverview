@@ -13,6 +13,48 @@ const nextConfig = {
       },
     },
   },
+
+  experimental: {
+    serverActions: {
+      // The framework default is 1 MB, which rejects real statements before the
+      // app's own 5 MB check ever runs (a 2 MB ASN export failed with a bare 413).
+      // Raised to match the app's cap plus multipart overhead.
+      bodySizeLimit: "12mb",
+    },
+  },
+
+  async headers() {
+    // No nonces: a nonce needs middleware, and middleware cannot verify the
+    // session cookie here (see docs/ARCHITECTURE.md). 'unsafe-inline' for scripts
+    // is the price of that; it still blocks external script origins, framing and
+    // base-uri tricks, which is what a LAN tool needs.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'none'",
+      "object-src 'none'",
+    ].join("; ");
+
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+          // Clickjacking: the app has destructive buttons one click away.
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

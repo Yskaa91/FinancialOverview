@@ -26,11 +26,14 @@ import type {
   RuleProposal,
 } from "@/lib/review/types";
 import { RULE_MATCH_ON, RULE_OPERATORS, type StatementSource } from "@/lib/types";
+import { requireSession } from "@/lib/auth";
 
 // One preview at a time (single user, single machine). The parsed rows wait in
 // Setting until the user commits or cancels, so a reload cannot lose the file and
 // nothing is written before the confirm step.
 const PREVIEW_KEY = "importPreview";
+/** Above this, the review dialog stops being a dialog. */
+const MAX_STATEMENT_ROWS = 20_000;
 
 /** A parsed row plus its dedupe hash. `bookedAt` is a string so the preview can
  * survive a JSON round trip through Setting. */
@@ -68,6 +71,7 @@ const uploadSchema = z.object({
 });
 
 export async function previewUpload(formData: FormData): Promise<void> {
+  await requireSession();
   const parsedForm = uploadSchema.safeParse({
     accountId: formData.get("accountId"),
     source: formData.get("source") ?? "auto",
@@ -100,6 +104,13 @@ export async function previewUpload(formData: FormData): Promise<void> {
     redirect(`/import?error=${encodeURIComponent(`parse:${detail}`)}`);
   }
 
+  // A 1 MB file can carry tens of thousands of rows, and every one of them is
+  // grouped, classified and duplicate-checked on each render of the review. Bound
+  // it where the work would start, with a message the user can act on.
+  if (result.rows.length > MAX_STATEMENT_ROWS) {
+    redirect(`/import?error=${encodeURIComponent(`too-many-rows:${result.rows.length}`)}`);
+  }
+
   // Occurrence counters make two identical coffees on one day two rows, while a
   // re-import of the same file still produces the same hashes.
   const occurrences = new Map<string, number>();
@@ -126,7 +137,16 @@ export async function previewUpload(formData: FormData): Promise<void> {
   });
   const known = new Set(existing.map((e) => e.dedupeHash));
 
-  const dates = rows.map((r) => r.bookedAt.getTime());
+  // Spread into Math.min/Math.max throws above ~125k arguments, and a preview of
+  // that size is unusable anyway: bound it here, loudly.
+  let firstDay = Number.POSITIVE_INFINITY;
+  let lastDay = Number.NEGATIVE_INFINITY;
+  for (const row of rows) {
+    const day = row.bookedAt.getTime();
+    if (day < firstDay) firstDay = day;
+    if (day > lastDay) lastDay = day;
+  }
+
   const preview: Preview = {
     accountId: account.id,
     accountName: account.name,
@@ -137,8 +157,8 @@ export async function previewUpload(formData: FormData): Promise<void> {
     duplicates: rows.filter((r) => known.has(r.dedupeHash)).length,
     rejected: result.rejected,
     sumCents: rows.reduce((sum, r) => sum + r.amountCents, 0),
-    periodStart: dates.length ? new Date(Math.min(...dates)).toISOString().slice(0, 10) : null,
-    periodEnd: dates.length ? new Date(Math.max(...dates)).toISOString().slice(0, 10) : null,
+    periodStart: rows.length ? new Date(firstDay).toISOString().slice(0, 10) : null,
+    periodEnd: rows.length ? new Date(lastDay).toISOString().slice(0, 10) : null,
   };
 
   // Creating the preview is a write path, so the transfer category may be created
@@ -151,6 +171,7 @@ export async function previewUpload(formData: FormData): Promise<void> {
 }
 
 export async function loadPreview(): Promise<Preview | null> {
+  await requireSession();
   const stored = await prisma.setting.findUnique({ where: { key: PREVIEW_KEY } });
   if (!stored) return null;
   try {
@@ -267,6 +288,7 @@ export type LoadedReview = {
 
 /** Everything the review dialog needs, in one round trip. */
 export async function loadReview(): Promise<LoadedReview | null> {
+  await requireSession();
   const preview = await loadPreview();
   if (!preview) return null;
 
@@ -303,6 +325,7 @@ export async function loadReview(): Promise<LoadedReview | null> {
  * model, which is what keeps the rule set predictable.
  */
 export async function suggestForPreview(): Promise<void> {
+  await requireSession();
   const preview = await loadPreview();
   if (!preview) redirect("/import?error=no-preview");
   if (!isAiConfigured()) redirect("/import?preview=1&ai=not-configured");
@@ -381,6 +404,7 @@ function parseDecisions(raw: FormDataEntryValue | null): ReviewDecisions {
  * suspected duplicate is skipped unless the user said otherwise.
  */
 export async function commitPreview(formData: FormData): Promise<void> {
+  await requireSession();
   const preview = await loadPreview();
   if (!preview) redirect("/import?error=no-preview");
 
@@ -445,20 +469,23 @@ export async function commitPreview(formData: FormData): Promise<void> {
     insert.push({ index, row, storedHash: freeHash(row.dedupeHash) });
   });
 
-  const statement = await prisma.statement.create({
-    data: {
-      accountId: preview.accountId,
-      source: preview.source,
-      filename: preview.filename,
-      fileHash: preview.fileHash,
-      rowCount: preview.rows.length,
-      periodStart: preview.periodStart ? new Date(`${preview.periodStart}T00:00:00.000Z`) : null,
-      periodEnd: preview.periodEnd ? new Date(`${preview.periodEnd}T00:00:00.000Z`) : null,
-    },
-  });
-
   let rulesCreated = 0;
   const imported = await prisma.$transaction(async (tx) => {
+    // Inside the transaction: a failed commit used to leave the Statement row
+    // behind, and since fileHash is unique that file could never be imported
+    // again.
+    const statement = await tx.statement.create({
+      data: {
+        accountId: preview.accountId,
+        source: preview.source,
+        filename: preview.filename,
+        fileHash: preview.fileHash,
+        rowCount: preview.rows.length,
+        periodStart: preview.periodStart ? new Date(`${preview.periodStart}T00:00:00.000Z`) : null,
+        periodEnd: preview.periodEnd ? new Date(`${preview.periodEnd}T00:00:00.000Z`) : null,
+      },
+    });
+
     await tx.transaction.createMany({
       data: insert.map(({ index, row, storedHash }) => {
         const decision = perRow.get(index);
@@ -544,6 +571,7 @@ export async function commitPreview(formData: FormData): Promise<void> {
 }
 
 export async function cancelPreview(): Promise<void> {
+  await requireSession();
   await prisma.setting.deleteMany({ where: { key: PREVIEW_KEY } });
   revalidatePath("/import");
   redirect("/import");

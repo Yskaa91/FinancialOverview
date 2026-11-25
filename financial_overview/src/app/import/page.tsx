@@ -3,18 +3,22 @@ import { ReviewDialog } from "@/components/import-review/review-dialog";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { listAccounts } from "@/lib/queries/accounts";
 import { STATEMENT_SOURCES } from "@/lib/types";
+import { requireSession } from "@/lib/auth";
 import { loadReview, previewUpload } from "./actions";
 
 const ERRORS: Record<string, string> = {
   "missing-input": "Choose an account and a file first.",
   "unknown-account": "That account no longer exists.",
   "file-too-large": "That file is larger than 5 MB.",
+  // Rows, not bytes: a small file can still hold an unusable number of lines.
+  "too-many-rows": "That statement has more rows than this app reviews at once (limit 20.000). Split it by month.",
   "already-imported": "This exact file was imported before. Nothing was changed.",
   "unknown-source": "Could not tell which bank this file is from. Pick the source explicitly.",
   "no-preview": "The preview expired. Upload the file again.",
 };
 
 export default async function ImportPage({ searchParams }: PageProps<"/import">) {
+  await requireSession();
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -23,7 +27,12 @@ export default async function ImportPage({ searchParams }: PageProps<"/import">)
   const done = first(sp.done);
   const skipped = Number(first(sp.skipped) ?? 0);
   const errorText = error
-    ? (ERRORS[error] ?? (error.startsWith("parse:") ? `Parser said: ${error.slice(6)}` : error))
+    ? (ERRORS[error] ??
+      (error.startsWith("parse:")
+        ? `Parser said: ${error.slice(6)}`
+        : error.startsWith("too-many-rows:")
+          ? `That statement has ${error.slice("too-many-rows:".length)} rows, more than this app reviews at once (limit 20.000). Split the file.`
+          : error))
     : null;
 
   return (

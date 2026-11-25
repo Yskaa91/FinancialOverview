@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { parseAmountToCents } from "@/lib/money";
 import { ACCOUNT_TYPES, INSTITUTIONS } from "@/lib/types";
+import { requireSession } from "@/lib/auth";
 
 const createAccountSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -20,6 +21,7 @@ export async function createAccount(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  await requireSession();
   const parsed = createAccountSchema.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
@@ -51,6 +53,7 @@ export async function createAccount(
 }
 
 export async function archiveAccount(id: string, archived: boolean) {
+  await requireSession();
   await prisma.account.update({ where: { id }, data: { archived } });
   revalidatePath("/accounts");
   revalidatePath("/");

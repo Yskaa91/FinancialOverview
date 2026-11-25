@@ -422,17 +422,73 @@ all data, guarded by a typed confirmation).
 - Accessibility: interactive rows are keyboard reachable, category picker is a
   combobox with a labelled input, charts have a text summary alternative.
 
-## 10. Privacy and safety
+## 10. Privacy and security
 
 Financial data never leaves the machine except (a) optional AI calls, which send
-description + amount + category list only, never IBANs or account names, and
-(b) optional Stooq price lookups, which send only ticker symbols. Both are off
-by default and shown as off in Settings.
+the merchant label, a group total and a row count — never IBANs, account names or
+balances, and the label is redacted before it is sent — and (b) optional Stooq
+price lookups, which send only ticker symbols. Both are off by default.
 
-The app has no authentication. It binds to `127.0.0.1`; exposing it on a LAN or
-Tailscale requires adding auth first. Import commits run in a single
-transaction; backups are a file copy of `prisma/dev.db`.
+### Authentication
 
+One shared password (`ACCESS_PASSWORD`, or the *Access password* add-on option),
+one session cookie. Enabled only when the variable is set, so local development
+and a single-user laptop keep working with no login screen.
+
+- **Stateless by construction.** The cookie value is `HMAC-SHA256(password,
+  "financial-overview-session-v1")`. Nothing is stored server-side, and changing
+  the password invalidates every existing session because the expected value
+  changes with it.
+- **`requireSession()` guards every page and every exported Server Action.** The
+  page guard alone would be theatre: Server Actions are individually addressable
+  endpoints, so each one checks for itself. 23 actions, 6 pages.
+- **No middleware.** Next 16's middleware has no Node runtime configured here, so
+  it cannot compute or compare an HMAC; a cookie-presence check there would look
+  like protection without being any. The check lives where the writes happen.
+- Constant-time comparison (`timingSafeEqual` over SHA-256 digests, so lengths
+  cannot be inferred) and a fixed 600 ms delay on a wrong password.
+
+Known limits, stated plainly: the cookie is not `Secure` (the add-on is reached
+over plain HTTP on a LAN), there is no lockout table (one account, so the delay is
+the control), and no password means no protection — the add-on logs a warning on
+start in that case.
+
+### Request handling
+
+- `headers()` sets CSP, `X-Frame-Options: DENY` (the destructive buttons are one
+  click away), `nosniff`, `no-referrer` and a restrictive `Permissions-Policy`.
+  The CSP allows `'unsafe-inline'` for scripts because a nonce needs middleware;
+  it still blocks foreign script origins and framing.
+- Server Action bodies are capped at 12 MB (`experimental.serverActions
+  .bodySizeLimit`) so the app's own 5 MB statement check is reachable — the
+  framework default of 1 MB rejected real statements first, with a bare 413.
+- Statements are capped at 20,000 rows, and nothing spreads a row array into
+  `Math.min`/`Math.max` (that throws above ~125k arguments).
+
+### Input handling
+
+- Every mutation validates with Zod at the edge; ids coming from forms are bound
+  and shape-checked before they reach Prisma. Prisma parameterises SQL, so
+  injection is not the risk here.
+- User-supplied `REGEX` rules are checked at write time and at match time
+  (`isSafePattern`): nested quantifiers, quantified alternations, stacked
+  quantifiers and quantified backreferences are refused, patterns are capped at
+  120 characters and inputs at 256. A pattern that would backtrack catastrophically
+  never runs, including one inserted straight into the database.
+- Duplicate detection indexes the existing rows by amount, so the scan is linear
+  rather than quadratic: 20k × 20k takes ~17 ms instead of 400M comparisons.
+- Labels shown in the UI and sent to an AI provider are redacted (IBAN-shaped
+  tokens, spaced account numbers, long digit runs, e-mails) before truncation.
+
+### Container
+
+The add-on runs as root — Home Assistant's own convention — with a published
+port. The generated `/tmp/options.env` is written under `umask 077` and deleted
+immediately after sourcing, because it carries the API key and password. Note
+that `/data/options.json` itself (written by Home Assistant) is part of every
+add-on backup: treat backups as secret material.
+
+## 11. Tests
 ## 11. Tests
 
 - `tests/import/*.test.ts` — one fixture per source plus the ugly cases: comma

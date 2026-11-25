@@ -15,6 +15,16 @@ const NOISE = /\b(?:BEA|BETAALPASS|BETAALPAS|BETAALAUTOMAAT|IDEAL|POS|CONTACTLOO
 const IBANISH = /\b[A-Z]{2}\d{2}[A-Z0-9]{6,}\b/g;
 const DIACRITICS = /[\u0300-\u036f]/g;
 
+// What must never reach an AI provider inside a label: account numbers, card
+// numbers and e-mail addresses. A masked card ("****4321") is already masked.
+const IBAN_LIKE = /\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/gi;
+// A spaced account number: "NL91 ABNA 0417 1643 00", or any run of four-digit
+// groups. Redacted before the whitespace is collapsed, or the groups would merge
+// into one unremarkable number.
+const SPACED_ACCOUNT = /\b(?:[A-Z]{2}\d{2}\s)?(?:[A-Z]{4}\s)?(?:\d{4}\s){2,}\d{2,4}\b/gi;
+const LONG_DIGITS = /\d{9,}/g;
+const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+
 /** Uppercase, no accents, no digits, no processor noise, single spaces. */
 function normalise(input: string): string {
   const text = input
@@ -36,10 +46,25 @@ export function merchantKeyOf(row: { merchant: string | null; description: strin
   return fromMerchant || normalise(row.description) || "UNKNOWN";
 }
 
+/**
+ * The label shown in the UI and sent to an AI provider. Anything that looks like
+ * an account number, a card number or an e-mail is replaced before truncation, so
+ * the AI boundary stays "merchant text only" even when the merchant is unknown.
+ */
+export function redactLabel(raw: string): string {
+  return raw
+    .replace(EMAIL, "[email]")
+    .replace(IBAN_LIKE, "[account]")
+    .replace(SPACED_ACCOUNT, "[account]")
+    .replace(LONG_DIGITS, "[number]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 32);
+}
+
 /** Short display label for a group ("LIDL", "Albert Heijn 1234"). */
 export function groupLabel(row: { merchant: string | null; description: string }): string {
-  const raw = (row.merchant?.trim() || row.description).replace(/\s+/g, " ").trim();
-  return raw.slice(0, 32);
+  return redactLabel(row.merchant?.trim() || row.description);
 }
 
 /** The amount most rows of a group share (first one wins a tie). */

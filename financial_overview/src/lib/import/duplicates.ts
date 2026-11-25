@@ -34,8 +34,18 @@ const NEAR_DAYS = 3;
 const MERCHANT_DAYS = 14;
 
 export function findDuplicateCandidates(incoming: IncomingRow[], existing: ExistingRow[]): DuplicateCandidate[] {
-  const byHash = new Map(existing.map((row) => [row.dedupeHash, row]));
-  const usable = existing.filter((row) => row.amountCents !== 0).map((row) => ({ row, day: utcDay(row.bookedAt) }));
+  // One pass over the existing rows: hash -> row for EXACT, amount -> bucket for
+  // LIKELY. A statement of 20k rows must not be compared against 20k rows.
+  const byHash = new Map<string, ExistingRow>();
+  const byAmount = new Map<number, { row: ExistingRow; day: number }[]>();
+  for (const row of existing) {
+    byHash.set(row.dedupeHash, row);
+    if (row.amountCents === 0) continue;
+    const entry = { row, day: utcDay(row.bookedAt) };
+    const bucket = byAmount.get(row.amountCents);
+    if (bucket) bucket.push(entry);
+    else byAmount.set(row.amountCents, [entry]);
+  }
 
   const candidates: DuplicateCandidate[] = [];
   for (const row of incoming) {
@@ -47,10 +57,12 @@ export function findDuplicateCandidates(incoming: IncomingRow[], existing: Exist
       continue;
     }
 
+    const bucket = byAmount.get(row.amountCents);
+    if (!bucket) continue;
+
     const day = utcDay(row.bookedAt);
     let best: { row: ExistingRow; days: number; reason: DuplicateCandidate["reason"] } | null = null;
-    for (const other of usable) {
-      if (other.row.amountCents !== row.amountCents) continue;
+    for (const other of bucket) {
       const days = Math.abs(other.day - day);
       if (Number.isNaN(days)) continue;
 

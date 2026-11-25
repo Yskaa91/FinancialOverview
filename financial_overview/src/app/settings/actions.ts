@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { CATEGORY_KINDS, RULE_MATCH_ON, RULE_OPERATORS } from "@/lib/types";
+import { requireSession } from "@/lib/auth";
+import { isSafePattern, MAX_PATTERN_LENGTH } from "@/lib/categorize/rules";
 
 const categorySchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -16,6 +18,7 @@ const categorySchema = z.object({
 });
 
 export async function createCategory(formData: FormData): Promise<void> {
+  await requireSession();
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
     kind: formData.get("kind"),
@@ -46,6 +49,7 @@ export async function createCategory(formData: FormData): Promise<void> {
 
 /** Deleting a category is refused while transactions or rules point at it. */
 export async function deleteCategory(formData: FormData): Promise<void> {
+  await requireSession();
   const id = formData.get("categoryId");
   if (typeof id !== "string" || !id) return;
 
@@ -70,7 +74,19 @@ const ruleSchema = z.object({
   priority: z.coerce.number().int().min(1).max(999),
 });
 
+/**
+ * Refuses a pattern that could backtrack catastrophically. The match path refuses
+ * it too, but letting it in at all means a stored rule that silently never runs.
+ */
+function patternProblem(pattern: string, operator: string): string | null {
+  if (pattern.length > MAX_PATTERN_LENGTH) return "pattern-too-long";
+  if (operator !== "REGEX") return null;
+  const verdict = isSafePattern(pattern);
+  return verdict.safe ? null : "unsafe-regex";
+}
+
 export async function createRule(formData: FormData): Promise<void> {
+  await requireSession();
   const parsed = ruleSchema.safeParse({
     name: formData.get("name"),
     matchOn: formData.get("matchOn"),
@@ -80,6 +96,8 @@ export async function createRule(formData: FormData): Promise<void> {
     priority: formData.get("priority") ?? 100,
   });
   if (!parsed.success) return;
+  if (parsed.data.operator === "REGEX" && !compiles(parsed.data.pattern)) return;
+  if (patternProblem(parsed.data.pattern, parsed.data.operator)) return;
 
   await prisma.rule.create({ data: { ...parsed.data, origin: "MANUAL" } });
   revalidatePath("/settings");
@@ -103,6 +121,7 @@ function compiles(pattern: string): boolean {
 
 /** Edits one rule in place. Invalid input changes nothing, same as createRule. */
 export async function updateRule(formData: FormData): Promise<void> {
+  await requireSession();
   const parsed = ruleUpdateSchema.safeParse({
     id: formData.get("id"),
     name: formData.get("name"),
@@ -115,6 +134,7 @@ export async function updateRule(formData: FormData): Promise<void> {
   });
   if (!parsed.success) return;
   if (parsed.data.operator === "REGEX" && !compiles(parsed.data.pattern)) return;
+  if (patternProblem(parsed.data.pattern, parsed.data.operator)) return;
 
   const { id, ...data } = parsed.data;
   await prisma.rule.update({ where: { id }, data });
@@ -123,6 +143,7 @@ export async function updateRule(formData: FormData): Promise<void> {
 }
 
 export async function toggleRule(formData: FormData): Promise<void> {
+  await requireSession();
   const id = formData.get("ruleId");
   if (typeof id !== "string" || !id) return;
   const rule = await prisma.rule.findUnique({ where: { id } });
@@ -131,17 +152,21 @@ export async function toggleRule(formData: FormData): Promise<void> {
   revalidatePath("/settings");
 }
 
+const idSchema = z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/);
+
 export async function deleteRule(formData: FormData): Promise<void> {
-  const id = formData.get("ruleId");
-  if (typeof id !== "string" || !id) return;
-  await prisma.rule.delete({ where: { id } });
+  await requireSession();
+  const id = idSchema.safeParse(formData.get("ruleId"));
+  if (!id.success) return;
+  await prisma.rule.delete({ where: { id: id.data } });
   revalidatePath("/settings");
 }
 
 /** Removes a learned merchant so the next import asks again. */
 export async function forgetMerchant(formData: FormData): Promise<void> {
-  const merchantKey = formData.get("merchantKey");
-  if (typeof merchantKey !== "string" || !merchantKey) return;
-  await prisma.merchantMap.deleteMany({ where: { merchantKey } });
+  await requireSession();
+  const merchantKey = z.string().min(1).max(120).safeParse(formData.get("merchantKey"));
+  if (!merchantKey.success) return;
+  await prisma.merchantMap.deleteMany({ where: { merchantKey: merchantKey.data } });
   revalidatePath("/settings");
 }

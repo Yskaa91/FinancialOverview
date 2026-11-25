@@ -12,6 +12,7 @@ const path = process.argv[2] ?? "/data/options.json";
 
 /** add-on option name -> environment variable the app reads */
 const MAP = {
+  access_password: "ACCESS_PASSWORD",
   ai_provider: "AI_PROVIDER",
   ai_api_key: "AI_API_KEY",
   ai_model: "AI_MODEL",

@@ -7,9 +7,10 @@ Import the CSV exports you already have — ASN Bank, PayPal and ICS credit card
 review them in one dialog, and the app keeps track of what you earn, what you
 spend, and what your accounts and ETFs are worth.
 
-> **No login screen.** The web interface is reachable by anything that can reach
-> your Home Assistant host on port 3000. Keep it on your LAN, do not forward the
-> port, and treat the whole instance as private.
+> **Set an access password.** Without the `access_password` option there is no
+> login and anything that can reach your Home Assistant host on port 3000 can read
+> and rewrite your finances. With it, one password protects every page and every
+> action. Keep it on your LAN either way and do not forward the port.
 
 ## Install
 
@@ -24,6 +25,7 @@ import a statement, which is the point: nothing is invented.
 
 | Option | Default | What it does |
 | --- | --- | --- |
+| `access_password` | *(empty)* | **Set this.** Password for the web interface. Without it anything that reaches port 3000 can read and rewrite your finances. Changing it signs every session out. |
 | `ai_provider` | `none` | Enables *Suggest with AI* in the import review. `none` keeps everything local; rules, merchant memory and manual picks work either way. |
 | `ai_api_key` | *(empty)* | Key for the provider. Stored in Home Assistant's add-on options, not in this repository. |
 | `ai_model` | `mistral-small-latest` | Any cheap chat model from the provider. |

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findDuplicateCandidates, type ExistingRow, type IncomingRow } from "@/lib/import/duplicates";
 
+
 function incoming(over: Partial<IncomingRow> = {}): IncomingRow {
   return {
     index: 0,
@@ -131,5 +132,64 @@ describe("findDuplicateCandidates", () => {
       ],
     );
     expect(candidate.existing.id).toBe("near");
+  });
+
+  it("indexes the existing rows instead of scanning them (20k x 20k)", () => {
+    const iso = (offsetDays: number) => new Date(Date.UTC(2025, 0, 1 + offsetDays)).toISOString().slice(0, 10);
+
+    const existingRows: ExistingRow[] = [];
+    for (let i = 0; i < 20_000; i += 1) {
+      existingRows.push({
+        id: `e${i}`,
+        bookedAt: iso(i % 360),
+        amountCents: -(i % 5_000) - 100,
+        description: `HISTORIC ${i}`,
+        merchant: `SHOP ${i % 500}`,
+        dedupeHash: `old-${i}`,
+      });
+    }
+    const incomingRows: IncomingRow[] = [];
+    for (let i = 0; i < 20_000; i += 1) {
+      incomingRows.push({
+        index: i,
+        bookedAt: iso((i % 360) + 500),
+        amountCents: -(i % 5_000) - 100,
+        description: `INCOMING ${i}`,
+        merchant: `SHOP ${i % 500}`,
+        dedupeHash: `new-${i}`,
+      });
+    }
+
+    // A pair that must still be found after the rewrite.
+    existingRows.push({
+      id: "known-existing",
+      bookedAt: "2025-06-01",
+      amountCents: -999_999,
+      description: "BLOEMIST ROOS",
+      merchant: "BLOEMIST ROOS",
+      dedupeHash: "known-old",
+    });
+    incomingRows.push({
+      index: 20_000,
+      bookedAt: "2025-06-03",
+      amountCents: -999_999,
+      description: "BLOEMIST ROOS",
+      merchant: "BLOEMIST ROOS",
+      dedupeHash: "known-new",
+    });
+
+    const started = performance.now();
+    const found = findDuplicateCandidates(incomingRows, existingRows);
+    const elapsed = performance.now() - started;
+
+    // The old nested scan needed 400M comparisons here and took seconds.
+    expect(elapsed).toBeLessThan(1_000);
+    const known = found.find((row) => row.hash === "known-new");
+    expect(known).toMatchObject({
+      kind: "LIKELY",
+      reason: "same-amount-near-date",
+      defaultDecision: "import",
+      existing: { id: "known-existing" },
+    });
   });
 });

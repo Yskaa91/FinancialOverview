@@ -4,12 +4,14 @@ import { formatCents, formatCentsSigned } from "@/lib/money";
 import { formatDay } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/types";
+import { requireSession } from "@/lib/auth";
 import { AddAccountForm } from "./add-account-form";
 
 // Reads the database on every request; nothing here is safe to prerender.
 export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
+  await requireSession();
   const accounts = await listAccounts();
 
   return (

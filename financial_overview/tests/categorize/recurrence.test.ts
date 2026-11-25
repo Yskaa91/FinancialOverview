@@ -7,6 +7,7 @@ import {
   keyMatchesRow,
   loadMerchantHistory,
   merchantKeyOf,
+  redactLabel,
 } from "@/lib/categorize/recurrence";
 
 const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
@@ -59,6 +60,46 @@ describe("groupLabel", () => {
 
   it("collapses whitespace so the AI line stays one line", () => {
     expect(groupLabel({ merchant: null, description: "  SHELL \n STATION  " })).toBe("SHELL STATION");
+  });
+
+  it("redacts account numbers before the label leaves the machine", () => {
+    expect(groupLabel({ merchant: null, description: "SEPA NL91ABNA0417164300 J DOE" })).toBe("SEPA [account] J DOE");
+  });
+});
+
+describe("redactLabel", () => {
+  it("replaces an IBAN", () => {
+    expect(redactLabel("NL91ABNA0417164300")).toBe("[account]");
+    expect(redactLabel("SEPA NL91ABNA0417164300 J DOE")).toBe("SEPA [account] J DOE");
+  });
+
+  it("replaces an account number written in four-digit groups", () => {
+    expect(redactLabel("NL91 ABNA 0417 1643 00")).toBe("[account]");
+    expect(redactLabel("BETALING 0417 1643 0012")).toBe("BETALING [account]");
+    // The spaces must be handled before whitespace is collapsed, or "0417 1643 0012"
+    // becomes one long number the digit rule would only partly catch.
+    expect(redactLabel("0417 1643 0012")).toBe("[account]");
+  });
+
+  it("replaces a long card or account number", () => {
+    expect(redactLabel("KAART 123456789012")).toBe("KAART [number]");
+    expect(redactLabel("PASVOLGNR 123456789")).toBe("PASVOLGNR [number]");
+    expect(redactLabel("LIDL 1234")).toBe("LIDL 1234"); // a store number is not a secret
+  });
+
+  it("replaces an e-mail address", () => {
+    expect(redactLabel("BETALING jan.devries@example.nl")).toBe("BETALING [email]");
+  });
+
+  it("keeps a masked card number, which is already masked", () => {
+    expect(redactLabel("PRIMARK ****4321")).toBe("PRIMARK ****4321");
+  });
+
+  it("collapses whitespace and caps at 32 characters after redaction", () => {
+    const label = redactLabel(`  NL91ABNA0417164300   ${"X".repeat(40)}  `);
+    expect(label).toHaveLength(32);
+    expect(label.startsWith("[account] X")).toBe(true);
+    expect(redactLabel("A\n\nB")).toBe("A B");
   });
 });
 

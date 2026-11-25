@@ -1,4 +1,11 @@
 configuration:
+  access_password:
+    name: Access password
+    description: >-
+      Password required to open the web interface. Anyone who can reach this host
+      on port 3000 can otherwise read and rewrite your finances. Changing it signs
+      every existing session out. Leave empty to run without a login (not
+      recommended).
   ai_provider:
     name: AI provider
     description: >-

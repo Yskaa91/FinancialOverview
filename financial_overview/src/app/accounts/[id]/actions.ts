@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { quantityToMicro } from "@/lib/money";
 import { parseAmountToCents } from "@/lib/money";
+import { requireSession } from "@/lib/auth";
 
 const tradeSchema = z.object({
   accountId: z.string().min(1),
@@ -19,6 +20,7 @@ const tradeSchema = z.object({
 
 /** Records a buy or sell. A new symbol creates the instrument on the fly. */
 export async function addTrade(formData: FormData): Promise<void> {
+  await requireSession();
   const parsed = tradeSchema.safeParse({
     accountId: formData.get("accountId"),
     symbol: formData.get("symbol"),
@@ -66,6 +68,7 @@ export async function addTrade(formData: FormData): Promise<void> {
 }
 
 export async function deleteTrade(formData: FormData): Promise<void> {
+  await requireSession();
   const id = formData.get("tradeId");
   const accountId = formData.get("accountId");
   if (typeof id !== "string" || typeof accountId !== "string") return;
@@ -82,6 +85,7 @@ const priceSchema = z.object({
 
 /** Manual price entry: the fallback when no price source is enabled. */
 export async function setPrice(formData: FormData): Promise<void> {
+  await requireSession();
   const parsed = priceSchema.safeParse({
     accountId: formData.get("accountId"),
     instrumentId: formData.get("instrumentId"),
@@ -110,6 +114,7 @@ export async function setPrice(formData: FormData): Promise<void> {
  * PRICE_FETCH=enabled, so nothing calls out by default.
  */
 export async function refreshPrices(formData: FormData): Promise<void> {
+  await requireSession();
   const accountId = formData.get("accountId");
   if (typeof accountId !== "string") return;
   if ((process.env.PRICE_FETCH ?? "disabled") !== "enabled") return;

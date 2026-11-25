@@ -7,9 +7,11 @@ import { prisma } from "@/lib/db";
 import { getAccount, listAccounts } from "@/lib/queries/accounts";
 import { getPortfolio } from "@/lib/queries/portfolio";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/types";
+import { requireSession } from "@/lib/auth";
 import { addTrade, deleteTrade, refreshPrices, setPrice } from "./actions";
 
 export default async function AccountDetailPage({ params }: PageProps<"/accounts/[id]">) {
+  await requireSession();
   const { id } = await params;
   const account = await getAccount(id);
   if (!account) notFound();

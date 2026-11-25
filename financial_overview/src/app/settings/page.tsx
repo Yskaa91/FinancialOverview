@@ -2,6 +2,7 @@ import { Card, PageHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { ACCOUNT_TYPE_LABELS, CATEGORY_KINDS } from "@/lib/types";
 import { AI_MAX_BATCHES, AI_MODEL, isAiConfigured } from "@/lib/categorize/ai";
+import { requireSession } from "@/lib/auth";
 import { RulesEditor } from "./rules-editor";
 import { createCategory, deleteCategory, forgetMerchant } from "./actions";
 
@@ -9,6 +10,7 @@ import { createCategory, deleteCategory, forgetMerchant } from "./actions";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  await requireSession();
   const [categories, rules, merchants, instruments] = await Promise.all([
     prisma.category.findMany({ orderBy: [{ kind: "asc" }, { name: "asc" }] }),
     prisma.rule.findMany({ orderBy: [{ priority: "asc" }, { name: "asc" }] }),

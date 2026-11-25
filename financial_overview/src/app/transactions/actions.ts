@@ -10,6 +10,7 @@ import {
 } from "@/lib/categorize/rules";
 import { isAiConfigured, suggestForUncategorised } from "@/lib/categorize/ai";
 import { ensureTransfersCategory } from "@/lib/categorize/transfers";
+import { requireSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 const setSchema = z.object({
@@ -20,6 +21,7 @@ const setSchema = z.object({
 
 /** Confirms a category for one row; "merchant" also clears every row of that shop. */
 export async function setCategory(formData: FormData): Promise<void> {
+  await requireSession();
   const parsed = setSchema.safeParse({
     transactionId: formData.get("transactionId"),
     categoryId: formData.get("categoryId"),
@@ -42,6 +44,7 @@ export async function setCategory(formData: FormData): Promise<void> {
 
 /** Runs the rule engine over everything still uncategorised. */
 export async function runRules(): Promise<void> {
+  await requireSession();
   await categoriseUncategorised();
   revalidatePath("/transactions");
   revalidatePath("/");
@@ -50,6 +53,7 @@ export async function runRules(): Promise<void> {
 
 /** Moves a row out of income/expense: one transfer category, no pairing. */
 export async function markAsTransfer(formData: FormData): Promise<void> {
+  await requireSession();
   const id = formData.get("transactionId");
   if (typeof id !== "string" || !id) return;
   const transfersId = await ensureTransfersCategory();
@@ -66,6 +70,7 @@ export async function markAsTransfer(formData: FormData): Promise<void> {
  * arrive as SUGGESTED, so this button never changes a category on its own.
  */
 export async function suggestWithAi(): Promise<void> {
+  await requireSession();
   if (!isAiConfigured()) redirect("/transactions?ai=off");
 
   const run = await suggestForUncategorised();

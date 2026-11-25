@@ -17,6 +17,7 @@ ports_description:
 webui: http://[HOST]:[PORT:3000]/
 watchdog: http://[HOST]:[PORT:3000]/
 options:
+  access_password: ""
   ai_provider: none
   ai_api_key: ""
   ai_model: mistral-small-latest
@@ -24,6 +25,7 @@ options:
   min_hits_for_rule: 3
   price_fetch: disabled
 schema:
+  access_password: password
   ai_provider: list(none|mistral)
   ai_api_key: password
   ai_model: str

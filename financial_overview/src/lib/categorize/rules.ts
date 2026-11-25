@@ -1,6 +1,111 @@
 import { prisma } from "@/lib/db";
 import type { RuleMatchOn, RuleOperator } from "@/lib/types";
 
+/** Longest pattern we accept; longer ones are refused at write time and at match time. */
+export const MAX_PATTERN_LENGTH = 120;
+/** Longest input a user regex is ever run against. */
+export const MAX_REGEX_INPUT = 256;
+
+/**
+ * Rejects the constructs that cause catastrophic backtracking: nested or stacked
+ * quantifiers, a quantified group that itself contains a quantifier, and
+ * backreferences under a quantifier. Deliberately conservative: a false positive
+ * costs the user an EQUALS/CONTAINS rule, a false negative costs the event loop.
+ *
+ * A quantified group is also refused when it contains an alternation, because
+ * `(a|aa)+` backtracks exponentially even though no inner quantifier is present.
+ */
+export function isSafePattern(pattern: string): { safe: boolean; reason?: string } {
+  const text = pattern ?? "";
+  if (text.trim() === "") return { safe: false, reason: "empty" };
+  if (text.length > MAX_PATTERN_LENGTH) return { safe: false, reason: "too long" };
+
+  const groups: { alternation: boolean; quantified: boolean }[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+
+    // Escapes: `\(` is a literal, `\1` is a backreference.
+    if (ch === "\\") {
+      if (/\d/.test(text[i + 1] ?? "") && isRepeater(text, quantifierEnd(text, i + 2))) {
+        return { safe: false, reason: "quantified backreference" };
+      }
+      i += 2;
+      continue;
+    }
+
+    // A character class: quantifiers and parens inside it are literal.
+    if (ch === "[") {
+      i = classEnd(text, i);
+      continue;
+    }
+
+    if (ch === "(") {
+      groups.push({ alternation: false, quantified: false });
+      // `(?:` / `(?=` / `(?<name>`: the `?` is group syntax, not a quantifier.
+      i += text[i + 1] === "?" ? 2 : 1;
+      continue;
+    }
+
+    if (ch === ")") {
+      const group = groups.pop();
+      i += 1;
+      if (!group || !isRepeater(text, quantifierEnd(text, i))) continue;
+      if (group.quantified) return { safe: false, reason: "nested quantifier" };
+      if (group.alternation) return { safe: false, reason: "quantified alternation" };
+      continue;
+    }
+
+    if (ch === "|") {
+      for (const group of groups) group.alternation = true;
+      i += 1;
+      continue;
+    }
+
+    const end = quantifierEnd(text, i);
+    if (end < 0) {
+      i += 1;
+      continue;
+    }
+    // `a+*` / `a{2,}+`: two quantifiers on one atom.
+    if (isRepeater(text, quantifierEnd(text, end))) return { safe: false, reason: "stacked quantifier" };
+    for (const group of groups) group.quantified = true;
+    i = end;
+  }
+
+  return { safe: true };
+}
+
+/** End index of a quantifier token at `start`, or -1 when there is none. */
+function quantifierEnd(text: string, start: number): number {
+  const ch = text[start];
+  if (ch === "*" || ch === "+" || ch === "?") return start + 1;
+  if (ch !== "{") return -1;
+  const match = /^\{\d+(?:,\d*)?\}/.exec(text.slice(start));
+  return match ? start + match[0].length : -1;
+}
+
+/** True for a real repeater: `?` on its own is lazy when it follows a quantifier. */
+function isRepeater(text: string, end: number): boolean {
+  return end > 0 && text[end - 1] !== "?";
+}
+
+/** Index just past the character class starting at `start`. */
+function classEnd(text: string, start: number): number {
+  let i = start + 1;
+  if (text[i] === "^") i += 1;
+  if (text[i] === "]") i += 1;
+  while (i < text.length) {
+    if (text[i] === "\\") {
+      i += 2;
+      continue;
+    }
+    if (text[i] === "]") return i + 1;
+    i += 1;
+  }
+  return text.length;
+}
+
 export type RuleLike = {
   id: string;
   name: string;
@@ -53,13 +158,17 @@ export function ruleMatches(rule: RuleLike, txn: TxnForRules): boolean {
       return value.toUpperCase().includes(rule.pattern.toUpperCase());
     case "EQUALS":
       return value.toUpperCase() === rule.pattern.toUpperCase();
-    case "REGEX":
-      // A user-supplied pattern: an invalid regex must not break an import.
+    case "REGEX": {
+      // A user-supplied pattern is untrusted input: refuse anything that can
+      // backtrack catastrophically, and never show it more than MAX_REGEX_INPUT
+      // characters, so one stored rule cannot wedge the event loop.
+      if (!isSafePattern(rule.pattern).safe) return false;
       try {
-        return new RegExp(rule.pattern, "i").test(value);
+        return new RegExp(rule.pattern, "i").test(value.slice(0, MAX_REGEX_INPUT));
       } catch {
         return false;
       }
+    }
   }
 }
 

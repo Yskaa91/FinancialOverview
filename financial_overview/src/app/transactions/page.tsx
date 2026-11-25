@@ -7,8 +7,10 @@ import { listCategories, listTransactions } from "@/lib/queries/transactions";
 import { CategoryPicker } from "./category-picker";
 import { runRules, suggestWithAi } from "./actions";
 import { AI_MODEL, isAiConfigured } from "@/lib/categorize/ai";
+import { requireSession } from "@/lib/auth";
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
+  await requireSession();
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const review = first(sp.review) === "1";
