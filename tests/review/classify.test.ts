@@ -150,6 +150,40 @@ describe("classifyPreview", () => {
     expect(groups.find((group) => group.key === "FLORIST JANSEN")?.proposal).toBe("NONE");
   });
 
+  it("matches a COUNTERPARTY rule, not just MERCHANT ones", async () => {
+    ruleFindMany.mockResolvedValue([
+      { ...lidlRule, id: "r3", name: "Payroll", matchOn: "COUNTERPARTY", pattern: "ACME", categoryId: "cat-salary" },
+    ]);
+
+    const groups = await classifyPreview([
+      {
+        bookedAt: "2026-03-25",
+        amountCents: 385000,
+        description: "SEPA Overboeking Loon",
+        merchant: "ACME BV",
+        counterparty: "ACME BV",
+        counterpartyIban: "NL02RABO0987654321",
+      },
+    ]);
+
+    expect(groups[0].match).toEqual({ ruleId: "r3", ruleName: "Payroll", categoryId: "cat-salary" });
+  });
+
+  it("keeps the counterparty on the group so rules can still see it", () => {
+    const groups = groupRows([
+      {
+        bookedAt: "2026-03-25",
+        amountCents: 385000,
+        description: "SEPA Overboeking Loon",
+        merchant: "ACME BV",
+        counterparty: "ACME BV",
+        counterpartyIban: "NL02RABO0987654321",
+      },
+    ]);
+    expect(groups[0].sources[0].counterparty).toBe("ACME BV");
+    expect(groups[0].sources[0].counterpartyIban).toBe("NL02RABO0987654321");
+  });
+
   it("orders unmatched groups first, then by absolute total", async () => {
     ruleFindMany.mockResolvedValue([{ ...lidlRule, pattern: "BAKERY", categoryId: "cat-bread" }]);
 

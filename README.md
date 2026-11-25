@@ -49,7 +49,14 @@ known state.
 | `/transactions` | Income & expenses: filter, inline category picker, review queue, run rules |
 | `/accounts` | Accounts: balance per account; detail page with transactions, imports and, for broker accounts, holdings and the trade log |
 | `/settings` | Categories, the rules editor popup, merchant memory, AI and price status |
-| `/import` | Three-step wizard: upload, check the preview, commit (not a tab) |
+| `/import` | Upload, then one review dialog with rule-matched and unmatched rows (not a tab) |
+
+## Trying the import by hand
+
+`samples/` holds two ASN statements built for exactly this: they hit rules, hit
+merchant memory, contain one recurring merchant that earns a rule and one florist
+who must not. `npm run db:seed` first, then follow `samples/README.md` — it lists
+the exact numbers the dialog shows.
 
 ## Documentation
 

@@ -19,6 +19,9 @@ export type PreviewInputRow = {
   amountCents: number;
   description: string;
   merchant: string | null;
+  /** Needed by the rule engine: COUNTERPARTY and IBAN rules match on these. */
+  counterparty?: string | null;
+  counterpartyIban?: string | null;
 };
 
 /** One merchant's worth of preview rows, before rules or history are consulted. */
@@ -26,6 +29,8 @@ export type PreviewGroup = {
   key: string;
   label: string;
   rows: ReviewRow[];
+  /** Kept beside the review rows so rules can see what they matched in the import. */
+  sources: PreviewInputRow[];
   totalCents: number;
   /** The amount most rows share: one figure per group is all the AI needs. */
   amountCents: number;
@@ -40,9 +45,11 @@ export function groupRows(rows: PreviewInputRow[]): PreviewGroup[] {
       key,
       label: groupLabel(row),
       rows: [],
+      sources: [],
       totalCents: 0,
       amountCents: 0,
     };
+    group.sources.push(row);
     group.rows.push({
       index,
       bookedAt: row.bookedAt,
@@ -114,14 +121,14 @@ function groupMatch(
   accountId?: string,
 ): ReviewMatch | null {
   let shared: { ruleId: string; categoryId: string } | null = null;
-  for (const row of group.rows) {
+  for (const row of group.sources) {
     const hit = resolveCategory(
       {
         accountId: accountId ?? "",
         amountCents: row.amountCents,
         description: row.description,
-        counterparty: null,
-        counterpartyIban: null,
+        counterparty: row.counterparty ?? null,
+        counterpartyIban: row.counterpartyIban ?? null,
         merchant: row.merchant,
       },
       rules,
