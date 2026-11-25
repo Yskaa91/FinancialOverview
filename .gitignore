@@ -49,3 +49,7 @@ next-env.d.ts
 
 # keep the env template
 !.env.example
+
+# python bytecode from vendored skill scripts
+__pycache__/
+*.pyc
