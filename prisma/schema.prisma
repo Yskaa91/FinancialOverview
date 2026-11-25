@@ -1,0 +1,223 @@
+// FinancialOverview schema. SQLite: no enums, no Decimal, no native arrays.
+// Money = integer cents. Quantities = integer micro-units (x 1e6).
+// Enum-like columns are String; the allowed values live in src/lib/types.ts and
+// are validated by Zod at every write.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7 keeps the URL out of the schema: see prisma.config.ts (CLI) and
+// src/lib/db.ts (runtime adapter).
+datasource db {
+  provider = "sqlite"
+}
+
+model Account {
+  id                  String   @id @default(cuid())
+  name                String
+  // CHECKING | SAVINGS | BROKER | CREDIT_CARD
+  type                String
+  // ASN | PAYPAL | ICS | OTHER
+  institution         String   @default("OTHER")
+  iban                String?
+  currency            String   @default("EUR")
+  openingBalanceCents Int      @default(0)
+  archived            Boolean  @default(false)
+  sortOrder           Int      @default(0)
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  statements   Statement[]
+  transactions Transaction[]
+  trades       Trade[]
+  snapshots    Snapshot[]
+  rules        Rule[]
+
+  @@index([archived, sortOrder])
+}
+
+model Statement {
+  id        String @id @default(cuid())
+  accountId String
+  // ASN | PAYPAL | ICS
+  source    String
+  filename  String
+  // sha256 of the uploaded bytes: blocks re-importing the same file
+  fileHash  String @unique
+  importedAt DateTime @default(now())
+  periodStart DateTime?
+  periodEnd   DateTime?
+  rowCount     Int @default(0)
+  importedCount Int @default(0)
+  skippedCount  Int @default(0)
+
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([accountId, importedAt])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  accountId   String
+  statementId String?
+  bookedAt    DateTime
+  // expense < 0, income > 0
+  amountCents        Int
+  currency           String @default("EUR")
+  // rate x 1e6 to convert to the base currency; null when currency is EUR
+  fxRateMicro        Int?
+  description        String
+  counterparty       String?
+  counterpartyIban   String?
+  merchant           String?
+  categoryId         String?
+  // MANUAL | RULE | AI | NONE
+  categorySource     String @default("NONE")
+  categoryConfidence Int?
+  // OK | SUGGESTED | UNCATEGORIZED
+  reviewState        String @default("UNCATEGORIZED")
+  transferGroupId    String?
+  balanceAfterCents  Int?
+  rawJson            String
+  // accountId|date|amount|currency|merchant|occurrence: makes imports idempotent
+  dedupeHash         String @unique
+
+  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  statement Statement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([bookedAt])
+  @@index([accountId, bookedAt])
+  @@index([categoryId, bookedAt])
+  @@index([reviewState])
+  @@index([merchant])
+  @@index([transferGroupId])
+}
+
+model Category {
+  id        String  @id @default(cuid())
+  name      String
+  // EXPENSE | INCOME | TRANSFER
+  kind      String
+  parentId  String?
+  color     String?
+  icon      String?
+  sortOrder Int      @default(0)
+  isSystem  Boolean  @default(false)
+
+  parent       Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Category[]   @relation("CategoryTree")
+  transactions Transaction[]
+  rules        Rule[]
+  merchantMap  MerchantMap[]
+
+  @@unique([name, kind, parentId])
+}
+
+model Rule {
+  id             String  @id @default(cuid())
+  name           String
+  // DESCRIPTION | COUNTERPARTY | IBAN | MERCHANT
+  matchOn        String
+  // CONTAINS | EQUALS | REGEX
+  operator       String
+  pattern        String
+  accountId      String?
+  amountMinCents Int?
+  amountMaxCents Int?
+  categoryId     String
+  priority       Int     @default(100)
+  // MANUAL | LEARNED
+  origin         String  @default("MANUAL")
+  hits           Int     @default(0)
+  enabled        Boolean @default(true)
+  createdAt      DateTime @default(now())
+
+  account  Account?  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, priority])
+}
+
+// Per-merchant memory: one confirmation, all future rows of that merchant free.
+model MerchantMap {
+  id          String   @id @default(cuid())
+  merchantKey String   @unique
+  categoryId  String
+  // RULE | AI | MANUAL
+  source      String   @default("MANUAL")
+  hits        Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model Instrument {
+  id     String  @id @default(cuid())
+  symbol String  @unique
+  isin   String?
+  name   String
+  // ETF | STOCK | BOND | CASH
+  kind     String @default("ETF")
+  currency String @default("EUR")
+  // Stooq ticker when it differs from symbol, e.g. "iwda.nl"
+  priceSymbol String?
+
+  trades Trade[]
+  prices Price[]
+}
+
+model Trade {
+  id           String   @id @default(cuid())
+  accountId    String
+  instrumentId String
+  // BUY | SELL
+  side         String
+  tradedAt     DateTime
+  quantityMicro Int
+  priceCents   Int
+  feeCents     Int      @default(0)
+  currency     String   @default("EUR")
+  note         String?
+  createdAt    DateTime @default(now())
+
+  account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, instrumentId, tradedAt])
+}
+
+model Price {
+  id           String   @id @default(cuid())
+  instrumentId String
+  fetchedAt    DateTime @default(now())
+  priceCents   Int
+  // MANUAL | STOOQ
+  source       String   @default("MANUAL")
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([instrumentId, fetchedAt])
+}
+
+model Snapshot {
+  id        String   @id @default(cuid())
+  accountId String
+  takenAt   DateTime
+  balanceCents Int
+  // IMPORT | MANUAL
+  source    String   @default("MANUAL")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, takenAt])
+}
+
+model Setting {
+  key       String   @id
+  valueJson String
+  updatedAt DateTime @updatedAt
+}
