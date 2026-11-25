@@ -30,11 +30,11 @@ transfers, duplicates — is described in
 │   ├── config.yaml          # add-on metadata and options schema
 │   ├── Dockerfile           # multi-stage build, Node 22 on Debian slim
 │   ├── run.sh               # options -> env, migrations, then next start
-│   ├── src/                 # Next.js app (pages, server actions, libs)
+│   ├── src/                 # Next.js app (pages, server actions, libs, auth)
 │   ├── prisma/              # schema and migrations
-│   ├── tests/               # vitest, 168 tests
+│   ├── tests/               # vitest, 193 tests
 │   ├── samples/             # demo statements to click through the import
-│   └── docs/                # architecture, import formats, design notes
+│   └── docs/                # architecture, import formats, design, security review
 ```
 
 The app lives inside the add-on folder because the Home Assistant Supervisor

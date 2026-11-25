@@ -57,6 +57,12 @@ Everything lives in `/data/financial.db` inside the add-on. Add-on backups
 include it; the option `backup: cold` means the add-on stops during backup so the
 file is consistent. Export or copy the file before uninstalling anything.
 
+## Security
+
+One password protects every page and every action; set the **Access password**
+option (see the table above). The design, its limits and the review behind it are
+in `docs/ARCHITECTURE.md` §10 and `docs/SECURITY-REVIEW.md`.
+
 ## Development
 
 The app is a normal Next.js project in this folder:

@@ -480,6 +480,9 @@ start in that case.
 - Labels shown in the UI and sent to an AI provider are redacted (IBAN-shaped
   tokens, spaced account numbers, long digit runs, e-mails) before truncation.
 
+The full review that produced this section, including the hypotheses that were
+tested and ruled out, is in `docs/SECURITY-REVIEW.md`.
+
 ### Container
 
 The add-on runs as root — Home Assistant's own convention — with a published
