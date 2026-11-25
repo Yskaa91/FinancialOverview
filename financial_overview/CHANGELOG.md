@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.2
+
+- **"Suggest with AI" works on large statements again.** The reply was budgeted
+  at 8 tokens per merchant, but an entry costs about 14, so any batch of more
+  than a handful of merchants came back cut off mid-JSON — and a truncated object
+  parses to nothing. A 44-merchant statement therefore produced 2 suggestions
+  from its small trailing batch and zero from the big one. The budget is now 24
+  tokens per group, a cut-off reply still contributes every complete answer, and
+  one failed batch no longer discards the others.
+- **Suggestions use the whole transaction line.** Each merchant is sent with up
+  to two full statement narratives (redacted, capped) instead of only the
+  32-character merchant label, plus the amount, the row count and the kind of
+  each category (expense/income/transfer) so income stops landing in a cost
+  bucket.
+- **Fewer forced guesses.** The prompt now asks for `0` unless the merchant
+  clearly belongs to a category; with a small category set that means fewer
+  wrong buckets. Category names in any language work as before — the language of
+  your category names was never the problem.
+- No migration, no data change: suggestions still only propose, a human approves.
+
 ## 0.6.1
 
 - **Installing and updating the add-on is faster.** The image was carrying about

@@ -45,18 +45,48 @@ describe("buildMessages", () => {
     const [system, user] = buildMessages(groups, categories);
 
     expect(system.role).toBe("system");
-    expect(system.content).toContain("1=Groceries; 2=Transport");
-    expect(system.content).toContain("14=Transfers");
-    expect(system.content).toContain("0 = unsure");
-    expect(system.content.length).toBeLessThan(340); // a few dozen tokens, not a paragraph
+    expect(system.content).toContain("1=Groceries/E; 2=Transport/E");
+    expect(system.content).toContain("14=Transfers/T");
+    expect(system.content).toContain("otherwise 0: a wrong bucket is worse than none");
+    // Money-out hint and kind legend, or the model puts income in a cost bucket.
+    expect(system.content).toContain("negative = money out");
+    expect(system.content).toContain("E=expense, I=income, T=transfer");
+    expect(system.content.length).toBeLessThan(700); // ~150 tokens, not a paragraph
     expect(user.role).toBe("user");
   });
 
   it("spells out the reply shape, because a real model skipped lines with i:0", () => {
     const [system] = buildMessages(groups, categories);
-    expect(system.content).toContain("One object per line");
-    expect(system.content).toContain("i = the line number, echo it back");
+    expect(system.content).toContain("Categorise every line");
+    expect(system.content).toContain("i = the line number, echoed back");
     expect(system.content).toContain('{"r":[{"i":1,"c":2}]}');
+  });
+
+  it("sends the statement text, so a truncated merchant label is not all it sees", () => {
+    const [, user] = buildMessages(
+      [
+        {
+          key: "ALBERT HEIJN",
+          label: "ALBERT HEIJN",
+          amountCents: -5432,
+          rows: 3,
+          description: "ALBERT HEIJN 1234 AMSTERDAM · ALBERT HEIJN 5678 UTRECHT",
+        },
+      ],
+      categories,
+    );
+    expect(user.content).toContain("|ALBERT HEIJN 1234 AMSTERDAM · ALBERT HEIJN 5678 UTRECHT");
+  });
+
+  it("keeps the statement text on one line and within 120 characters", () => {
+    const [, user] = buildMessages(
+      [{ key: "X", label: "X", amountCents: -1, rows: 1, description: `a|b\nc${"d".repeat(200)}` }],
+      categories,
+    );
+    expect(user.content.split("\n")).toHaveLength(1);
+    expect(user.content).not.toContain("|b|");
+    expect(user.content).toContain("d".repeat(100));
+    expect(user.content).not.toContain("d".repeat(150));
   });
 
   it("sends one line per group, not per transaction, with an Nx marker", () => {
@@ -104,6 +134,16 @@ describe("parseSuggestions", () => {
       2,
     );
     expect(map.size).toBe(0);
+  });
+
+  it("salvages the pairs from a reply cut off by the token limit", () => {
+    // Exactly what mistral-small-latest sent when max_tokens ran out mid-object.
+    const cut = '{"r": [{"i": 1, "c": 0}, {"i": 2, "c": 2}, {"i": 3, "c": 1}, {"i": 4, "c';
+    const map = parseSuggestions(cut, 6, 3);
+    expect(map.get(2)).toBe(2);
+    expect(map.get(3)).toBe(1);
+    expect(map.has(1)).toBe(false);
+    expect(map.has(4)).toBe(false);
   });
 
   it("returns an empty map for garbage", () => {
@@ -169,6 +209,30 @@ describe("suggestGroupCategories", () => {
     expect(body.messages).toHaveLength(2);
     expect(init.headers.Authorization).toMatch(/^Bearer /);
     expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("budgets enough output tokens for one entry per group", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ choices: [{ message: { content: '{"r":[]}' } }] }),
+    }));
+
+    await suggestGroupCategories(
+      Array.from({ length: 40 }, (_, index) => ({
+        key: `k${index}`,
+        label: `M${index}`,
+        amountCents: -100,
+        rows: 1,
+      })),
+      categories,
+      fetchMock as never,
+    );
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, { body: string }];
+    const body = JSON.parse(init.body);
+    // A reply costs ~14 tokens per entry; 8 per group truncated the JSON.
+    expect(body.max_tokens).toBeGreaterThanOrEqual(40 * 20);
   });
 
   it("throws on a non-2xx answer so the caller can stop spending", async () => {

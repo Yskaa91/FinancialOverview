@@ -346,6 +346,8 @@ export async function suggestForPreview(): Promise<void> {
     label: group.label,
     amountCents: group.totalCents,
     rows: group.rows.length,
+    // Two distinct narratives are enough to place a merchant; more is noise.
+    description: [...new Set(group.rows.map((row) => row.description))].slice(0, 2).join(" · "),
   }));
 
   const run = await proposeForPreview(inputs, categories);

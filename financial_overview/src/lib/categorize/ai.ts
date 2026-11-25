@@ -9,7 +9,7 @@
 // Rule writes. Approved categorisations are the caller's job.
 
 import { prisma } from "@/lib/db";
-import { dominantAmountCents, groupLabel, merchantKeyOf } from "@/lib/categorize/recurrence";
+import { displayLabel, dominantAmountCents, merchantKeyOf } from "@/lib/categorize/recurrence";
 import type { CategoryOption } from "@/lib/review/types";
 
 export const AI_MODEL = process.env.AI_MODEL ?? "mistral-small-latest";
@@ -30,6 +30,12 @@ export type AiGroupInput = {
   /** Dominant amount of the group, in cents. */
   amountCents: number;
   rows: number;
+  /**
+   * What the statement actually says. The label alone is the merchant name and
+   * loses the rest ("ALBERT HEIJN 1234 AMSTERDAM" tells more than "ALBERT HEIJN"),
+   * and it is the only transaction text the privacy rules allow to leave.
+   */
+  description?: string;
 };
 
 /**
@@ -44,18 +50,25 @@ export function buildMessages(
   groups: AiGroupInput[],
   categories: CategoryOption[],
 ): { role: "system" | "user"; content: string }[] {
-  const categoryList = categories.map((category, index) => `${index + 1}=${category.name}`).join("; ");
+  const kindLetter = { EXPENSE: "E", INCOME: "I", TRANSFER: "T" } as const;
+  const categoryList = categories
+    .map((category, index) => `${index + 1}=${category.name}/${kindLetter[category.kind] ?? "E"}`)
+    .join("; ");
+  const clean = (raw: string, limit: number) =>
+    raw
+      .replace(/[|\n\r]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, limit);
+
   const lines = groups
     .map((group, index) => {
       // One line, no pipes: the row format must never break on a merchant name.
-      const label = group.label
-        .replace(/[|\n\r]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 32);
+      const label = clean(group.label, 32);
       const amount = (group.amountCents / 100).toFixed(2);
       const repeat = group.rows > 1 ? `|${group.rows}x` : "";
-      return `${index + 1}|${label}|${amount}${repeat}`;
+      const description = clean(group.description ?? "", 120);
+      return `${index + 1}|${label}|${amount}${repeat}|${description}`;
     })
     .join("\n");
 
@@ -63,8 +76,11 @@ export function buildMessages(
     {
       role: "system",
       content:
-        "One object per line, in order. i = the line number, echo it back. " +
-        "c = category number, 0 = unsure. Negative = expense. JSON only: " +
+        "Categorise every line: i = the line number, echoed back, c = category " +
+        "number. Only pick a category the merchant clearly belongs to, otherwise " +
+        "0: a wrong bucket is worse than none. Amount negative = money out. " +
+        "Line format: i|merchant|amount|count|statement text. " +
+        "E=expense, I=income, T=transfer category. JSON only, one object per line: " +
         '{"r":[{"i":1,"c":2}]} Categories: ' +
         categoryList,
     },
@@ -94,12 +110,16 @@ export function parseSuggestions(raw: string, groupCount: number, categoryCount:
   } catch {
     const start = clear.indexOf("{");
     const end = clear.lastIndexOf("}");
-    if (start === -1 || end <= start) return new Map();
-    try {
-      parsed = JSON.parse(clear.slice(start, end + 1));
-    } catch {
-      return new Map();
+    if (start !== -1 && end > start) {
+      try {
+        parsed = JSON.parse(clear.slice(start, end + 1));
+      } catch {
+        parsed = undefined;
+      }
     }
+    // Still nothing: the answer was cut off mid-object (finish_reason "length").
+    // Every complete pair before the cut is still a usable answer.
+    if (parsed === undefined) return salvagePairs(clear, groupCount, categoryCount);
   }
 
   const list = Array.isArray(parsed)
@@ -130,6 +150,23 @@ export function parseSuggestions(raw: string, groupCount: number, categoryCount:
   return result;
 }
 
+/**
+ * Reads the `{i,c}` pairs out of a reply that never became valid JSON. The model
+ * writes them in order, so a squeezed answer still classifies most lines.
+ */
+function salvagePairs(raw: string, groupCount: number, categoryCount: number): Map<number, number> {
+  const result = new Map<number, number>();
+  const pair = /"i"\s*:\s*(\d+)\s*,\s*"c"\s*:\s*(\d+)/g;
+  for (const match of raw.matchAll(pair)) {
+    const index = Number(match[1]);
+    const category = Number(match[2]);
+    if (index < 1 || index > groupCount) continue;
+    if (category < 1 || category > categoryCount) continue;
+    if (!result.has(index)) result.set(index, category);
+  }
+  return result;
+}
+
 export type FetchLike = (
   input: string,
   init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
@@ -150,7 +187,9 @@ export async function suggestGroupCategories(
     body: JSON.stringify({
       model: AI_MODEL,
       temperature: 0,
-      max_tokens: 60 + groups.length * 8,
+      // ~14 tokens per entry in practice; the old 8 per group cut the JSON in
+      // half, and a truncated object parses to nothing at all.
+      max_tokens: 80 + groups.length * 24,
       response_format: { type: "json_object" },
       messages: buildMessages(groups, categories),
     }),
@@ -195,7 +234,8 @@ export async function proposeForPreview(
       }
       result.calls += 1;
     } catch {
-      return { ...result, error: "request-failed" };
+      // Keep the batches that did answer; report the failure alongside them.
+      result.error = "request-failed";
     }
   }
   return result;
@@ -218,7 +258,7 @@ export async function suggestForUncategorised(limit = AI_BATCH_SIZE * 10): Promi
       where: { categoryId: null },
       orderBy: [{ bookedAt: "desc" }],
       take: limit,
-      select: { id: true, merchant: true, description: true, amountCents: true },
+      select: { id: true, merchant: true, counterparty: true, description: true, amountCents: true },
     }),
   ]);
   if (pending.length === 0 || categories.length === 0) return { suggested: 0, calls: 0 };
@@ -226,17 +266,22 @@ export async function suggestForUncategorised(limit = AI_BATCH_SIZE * 10): Promi
   const idsByKey = new Map<string, string[]>();
   const amountsByKey = new Map<string, number[]>();
   const labelsByKey = new Map<string, string>();
+  const descriptionsByKey = new Map<string, string[]>();
   for (const txn of pending) {
     const key = merchantKeyOf(txn);
     const ids = idsByKey.get(key);
     if (ids) {
       ids.push(txn.id);
       amountsByKey.get(key)?.push(txn.amountCents);
+      const seen = descriptionsByKey.get(key);
+      const text = txn.counterparty ?? txn.description;
+      if (seen && seen.length < 2 && !seen.includes(text)) seen.push(text);
       continue;
     }
     idsByKey.set(key, [txn.id]);
     amountsByKey.set(key, [txn.amountCents]);
-    labelsByKey.set(key, groupLabel(txn));
+    labelsByKey.set(key, displayLabel(txn));
+    descriptionsByKey.set(key, [txn.counterparty ?? txn.description]);
   }
 
   const groups: AiGroupInput[] = [...idsByKey].map(([key, ids]) => ({
@@ -244,6 +289,7 @@ export async function suggestForUncategorised(limit = AI_BATCH_SIZE * 10): Promi
     label: labelsByKey.get(key) ?? key,
     amountCents: dominantAmountCents(amountsByKey.get(key) ?? []),
     rows: ids.length,
+    description: (descriptionsByKey.get(key) ?? []).join(" · "),
   }));
 
   const run = await proposeForPreview(

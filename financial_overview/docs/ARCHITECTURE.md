@@ -348,14 +348,26 @@ because per-row cost decides whether the feature is worth having:
 - **Granularity**: one line per *merchant group*, not per transaction, with a
   `|3x` marker when the group has several rows. A 200-row statement is usually a
   few dozen groups.
-- **Prompt**: two sentences plus `n=Category` names, `0` = unsure, JSON reply
-  `{"r":[{"i":1,"c":2}]}`. Around 330 characters plus the category names.
+- **Line format**: `i|merchant|amount|count|statement text`. The statement text
+  is the real value — the merchant name in a bank export is often truncated to
+  something meaningless, while the narrative carries the shop and the branch. Two
+  distinct narratives per group, redacted and capped at 120 characters.
+- **Prompt**: the line format, `negative = money out`, `E/I/T` kinds next to each
+  `n=Category` name, "only pick a category the merchant clearly belongs to,
+  otherwise 0", and the JSON reply shape `{"r":[{"i":1,"c":2}]}`.
+- **Output budget**: `80 + 24` tokens per group. An entry costs about 14 tokens,
+  so the old `60 + 8` per group cut the JSON off mid-object
+  (`finish_reason: length`), and a truncated object parses to nothing at all —
+  that is what made a 40-merchant batch return zero suggestions while the small
+  trailing batch looked fine.
 - **Reader**: tolerates fences, a bare array, trailing commas and `i:0` (some
   models use it as "skip"), falls back to positional mapping when the reply has
-  exactly one entry per line, and drops out-of-range answers instead of guessing.
+  exactly one entry per line, salvages the complete `{i,c}` pairs out of a reply
+  that was cut off, and drops out-of-range answers instead of guessing.
 - **Guards**: `AI_BATCH_SIZE` groups per call, `AI_MAX_BATCHES` (default 5) calls
   per run, 20-second timeout, `temperature: 0`, `response_format: json_object`.
-  A failed request reports `request-failed` and changes nothing.
+  A failed request reports `request-failed` but the batches that did answer are
+  kept, and nothing is written without a human approval either way.
 - **Privacy**: only merchant/description text, the group total and the row count
   are sent. Never IBANs, account names or balances.
 
