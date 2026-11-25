@@ -71,6 +71,11 @@ describe("session guard", () => {
     expect(cookieStore.set).toHaveBeenCalledWith("fo_session", sessionToken("correct horse"), expect.anything());
   });
 
+  it("ignores whitespace a password manager adds around the password", async () => {
+    process.env.ACCESS_PASSWORD = "correct horse";
+    await expect(startSession("  correct horse \n")).resolves.toBe(true);
+  });
+
   it("signs every session out when the password changes", async () => {
     process.env.ACCESS_PASSWORD = "first";
     const oldCookie = sessionToken("first");

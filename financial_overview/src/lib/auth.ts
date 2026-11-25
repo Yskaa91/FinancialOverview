@@ -62,7 +62,9 @@ export async function requireSession(): Promise<void> {
 export async function startSession(candidate: string): Promise<boolean> {
   const password = accessPassword();
   if (!password) return true;
-  if (!safeEqual(candidate, password)) return false;
+  // Trimmed like the configured value: a password manager or a stray space must
+  // not decide whether the one shared password is accepted.
+  if (!safeEqual(candidate.trim(), password)) return false;
 
   const store = await cookies();
   store.set(SESSION_COOKIE, sessionToken(password), {
