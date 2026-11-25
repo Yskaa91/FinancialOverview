@@ -75,6 +75,16 @@ add-on options (/data/options.json)
   at build time), so the add-on publishes port 3000 and uses `webui` instead: the
   sidebar entry opens the UI in a new tab. This is a deliberate trade of sidebar
   embed for a working app.
+- **The base image is pinned in the Dockerfile, not read from `BUILD_FROM`.** A
+  first build resolved `BUILD_FROM` to the Alpine Home Assistant base despite
+  `build.yaml`, where `apt-get` does not exist — and Alpine would also break the
+  glibc prebuilds Prisma and `better-sqlite3` depend on. Both stages therefore say
+  `FROM node:22-bookworm-slim`; `build.yaml` keeps the same value so either path
+  agrees, but nothing depends on it.
+- **The runtime image ships no `src/` and no dev dependencies.** `next.config.mjs`
+  is plain JavaScript so that starting the server never needs the TypeScript
+  compiler, and the only files copied in are `.next`, `public`, `prisma`, the
+  Prisma config, the option mapper and `run.sh`.
 - **Build stage only carries the toolchain.** `python3 make g++` exist in the
   builder so a missing prebuilt for `better-sqlite3` or Prisma cannot break the
   image; the runtime stage is the plain `node:22-bookworm-slim`.
