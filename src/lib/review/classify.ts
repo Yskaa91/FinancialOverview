@@ -11,6 +11,7 @@ import {
   loadMerchantHistory,
   merchantKeyOf,
 } from "@/lib/categorize/recurrence";
+import { findTransfersCategoryId, isAccountTransfer, loadOwnAccounts, type OwnAccount } from "@/lib/categorize/transfers";
 import type { CategoryKind } from "@/lib/types";
 import type { CategoryOption, ReviewGroup, ReviewMatch, ReviewRow } from "./types";
 
@@ -71,6 +72,10 @@ export function groupRows(rows: PreviewInputRow[]): PreviewGroup[] {
  * Groups rows by merchantKey, resolves rule/merchant-memory matches, attaches
  * history. `accountId` lets account-scoped rules match; omit it and only
  * account-agnostic rules apply.
+ *
+ * A row that moves money between the user's own accounts matches the Transfers
+ * system category instead of a rule. When that category does not exist the
+ * detection is skipped: a read path must never create data.
  */
 export async function classifyPreview(
   rows: PreviewInputRow[],
@@ -78,7 +83,11 @@ export async function classifyPreview(
   accountId?: string,
 ): Promise<ReviewGroup[]> {
   const groups = groupRows(rows);
-  const { rules, merchantMap } = await loadCategoriser();
+  const [{ rules, merchantMap }, ownAccounts, transfersId] = await Promise.all([
+    loadCategoriser(),
+    loadOwnAccounts(),
+    findTransfersCategoryId(),
+  ]);
   const history = await loadMerchantHistory(groups.map((group) => group.key));
   const ruleNameById = new Map(rules.map((rule) => [rule.id, rule.name]));
   const before = new Map((previous ?? []).map((group) => [group.key, group]));
@@ -93,7 +102,9 @@ export async function classifyPreview(
       totalCents: group.totalCents,
       historyHits,
       recurring: isRecurring(historyHits, group.rows.length),
-      match: groupMatch(group, rules, merchantMap, ruleNameById, accountId),
+      match:
+        transferMatch(group, ownAccounts, transfersId, accountId) ??
+        groupMatch(group, rules, merchantMap, ruleNameById, accountId),
       proposedCategoryId: earlier?.proposedCategoryId ?? null,
       proposal: earlier?.proposal ?? "NONE",
     };
@@ -110,6 +121,28 @@ export async function loadCategoryOptions(): Promise<CategoryOption[]> {
     name: category.name,
     kind: category.kind as CategoryKind,
   }));
+}
+
+/** Any row of the group moving money between own accounts makes the group a transfer. */
+function transferMatch(
+  group: PreviewGroup,
+  own: OwnAccount[],
+  transfersId: string | null,
+  accountId?: string,
+): ReviewMatch | null {
+  if (!transfersId) return null;
+  const hit = group.sources.some((row) =>
+    isAccountTransfer(
+      {
+        accountId,
+        description: row.description,
+        counterparty: row.counterparty,
+        counterpartyIban: row.counterpartyIban,
+      },
+      own,
+    ),
+  );
+  return hit ? { ruleId: "", ruleName: "Account transfer", categoryId: transfersId } : null;
 }
 
 /** The group's rows agree on one category, or the group has no match. */

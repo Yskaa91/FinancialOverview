@@ -98,6 +98,18 @@ All copy is English. Amounts and dates still render in the Dutch convention
 (€ 1.234,56 and 31-01-2026) because that matches the source statements; the
 formatting lives in `src/lib/money.ts` and `src/lib/dates.ts`.
 
+## Transfers and duplicates
+
+Every movement between your own accounts gets one category, **Transfers**
+(`kind TRANSFER`), and the dashboard and income/expense overview skip that kind.
+There is no pairing and no balancing: PayPal's `-X to ASN` and ASN's
+`+X from PayPal` are each recognised as a transfer on their own.
+
+An import that overlaps a previous export is fine. The review dialog lists
+suspected duplicates with both sides visible and an Import/Skip choice per row,
+plus Import all/Skip all. `EXACT` (already stored) starts on Skip, `LIKELY` (same
+amount within three days) starts on Import.
+
 ## Rules that must not break
 
 - Money is **integer cents**, never a float. See `src/lib/money.ts`.

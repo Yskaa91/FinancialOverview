@@ -123,8 +123,11 @@ async function main() {
   const insurance = await cat("Insurance", "EXPENSE", "#64748b");
   const salary = await cat("Salary", "INCOME", "#16a34a");
   const otherIncome = await cat("Other income", "INCOME", "#4ade80");
-  const investing = await cat("Investing", "TRANSFER", "#0f172a");
-  const savings = await cat("Savings", "TRANSFER", "#334155");
+  // One general category for every movement between own accounts: no pairing,
+  // no balancing, and nothing here counts as income or expense.
+  const transfers = await prisma.category.create({
+    data: { name: "Transfers", kind: "TRANSFER", color: "#0f172a", isSystem: true },
+  });
 
   // Rules and one learned merchant, so the categoriser has something to hit.
   await prisma.rule.createMany({
@@ -262,7 +265,7 @@ async function main() {
       });
     }
 
-    // Transport, subscription, savings transfer and investing.
+    // Transport, subscription, and two movements between own accounts.
     add({
       accountId: accounts["ASN Checking"].id,
       bookedAt: monthDay(9),
@@ -283,7 +286,7 @@ async function main() {
       description: "OVERBOEKING NAAR BROKERAGE",
       counterparty: "Brokerage",
       merchant: null,
-      categoryId: investing.id,
+      categoryId: transfers.id,
       transferGroupId: payout,
       reviewState: "OK",
       dedupeHash: nextHash("invest-out"),
@@ -294,7 +297,7 @@ async function main() {
       amountCents: 75000,
       description: "STORTING VAN ASN CHECKING",
       counterparty: "ASN Checking",
-      categoryId: investing.id,
+      categoryId: transfers.id,
       transferGroupId: payout,
       reviewState: "OK",
       dedupeHash: nextHash("invest-in"),
@@ -307,7 +310,7 @@ async function main() {
       amountCents: -50000,
       description: "SPAAROVERBOEKING",
       counterparty: "ASN Savings",
-      categoryId: savings.id,
+      categoryId: transfers.id,
       transferGroupId: savingsGroup,
       reviewState: "OK",
       dedupeHash: nextHash("save-out"),
@@ -318,7 +321,7 @@ async function main() {
       amountCents: 50000,
       description: "VAN ASN CHECKING",
       counterparty: "ASN Checking",
-      categoryId: savings.id,
+      categoryId: transfers.id,
       transferGroupId: savingsGroup,
       reviewState: "OK",
       dedupeHash: nextHash("save-in"),

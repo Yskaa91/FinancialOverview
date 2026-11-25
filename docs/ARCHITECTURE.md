@@ -194,12 +194,16 @@ per-source details, with evidence, are in `docs/IMPORT-FORMATS.md`:
 - Card accounts: ICS has **no IBAN**. The account key is a masked card number
   (`****1234`), which is why `Account.iban` is nullable and also carries a card
   number for credit cards.
-- Transfers: after commit, pair rows where `amount_a = -amount_b`, the two
-  accounts differ, dates are ≤ 3 days apart and one counterparty matches the
-  other account's name/iban. Pair both under one `transferGroupId`; kind
-  `TRANSFER` is excluded from income and expense totals. This is what stops an
-  ICS direct-debit settlement (`GEINCASSEERD VORIG SALDO`) and the matching bank
-  debit from counting twice.
+- Transfers: **one category, no balancing.** Every movement between own accounts
+  gets the system category `Transfers` (`kind = TRANSFER`), and every report
+  excludes that kind, so neither side of the movement lands in income or expense
+  and nothing has to be paired. Detection (`lib/categorize/transfers.ts`) is
+  deliberately narrow: another own account's IBAN in the counterparty field, an
+  own IBAN or another account's name plus a movement word in the description, or
+  a card settlement line (`GEINCASSEERD`, `VORIG SALDO`). The word "overboeking"
+  alone never counts — a wrong transfer would hide real spending from every
+  total. The legitimate PayPal case ("-X to ASN" on PayPal, "+X from PayPal" on
+  ASN) is a transfer on both sides because each file names the other account.
 
 Parser status and the documented-vs-observed split per source live in
 `docs/IMPORT-FORMATS.md`. ASN also offers CAMT.053 (ISO 20022 XML), which ASN
@@ -218,7 +222,10 @@ statement.
 2. **Merchant map** — exact `merchantKey` hit (source of all automatic wins).
 3. **Rules** — ordered by `priority`, first match wins; can be scoped to one
    account and to an amount band.
-4. **Uncategorised** — a badge count, and the rows the review dialog exists for.
+4. **Account transfer** — a movement between own accounts gets the `Transfers`
+   category. This outranks rules on purpose: no rule may park a transfer in a
+   spending category.
+5. **Uncategorised** — a badge count, and the rows the review dialog exists for.
 
 ### Review dialog (`/import`)
 
@@ -295,6 +302,26 @@ A row whose `REGEX` pattern does not compile is flagged and cannot be saved.
 
 The app is fully functional with `AI_PROVIDER=none`; the dialog then simply never
 offers the AI button.
+
+### Duplicate detection
+
+An import that overlaps a previous export is normal, so the dialog cannot simply
+drop rows. `lib/import/duplicates.ts` (pure) compares the incoming rows with the
+account's stored rows inside a ±14-day window and returns candidates:
+
+| Verdict | Rule | Default |
+| --- | --- | --- |
+| `EXACT` | the incoming `dedupeHash` is already stored | **skip** |
+| `LIKELY` | same amount within 3 days, or same amount and merchant within 14 days | **import** |
+
+The dialog shows both sides (`03-11-2026 ALBERT HEIJN −€ 42,18` next to the
+incoming row), with *Import* / *Skip* per row and *Import all* / *Skip all* in the
+header. An approved exact duplicate is written with a suffixed hash, because
+`dedupeHash` is unique by design; a likely duplicate inserts normally.
+
+Skipping by default for `EXACT` protects the totals; importing by default for
+`LIKELY` protects against losing a genuine second purchase. Both verdicts are
+visible before anything is written, and the footer count follows the decisions.
 
 ## 7. Portfolio and valuation
 
@@ -417,5 +444,9 @@ plus CAMT.053.
 - **Cheap models get ambiguous merchants wrong.** The suggestion arrives
   pre-selected but unapproved, and `c: 0` is respected as "no idea", so a wrong
   guess costs one click. It never becomes a rule for a one-off merchant.
+- **`Transaction.transferGroupId` is legacy.** Reports no longer read it: they
+  exclude `category.kind = TRANSFER` instead, which needs no pairing. Existing
+  rows keep their old value and nothing writes it any more; dropping the column
+  is a later migration, not a behaviour change.
 - **The AI key is only checked on use.** A wrong key surfaces as
   `request-failed` in the dialog, not at boot; the import itself is unaffected.

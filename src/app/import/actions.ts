@@ -16,7 +16,10 @@ import { dedupeHash } from "@/lib/import/normalize";
 import { categoriseUncategorised } from "@/lib/categorize/rules";
 import { AI_MODEL, isAiConfigured, proposeForPreview, type AiGroupInput } from "@/lib/categorize/ai";
 import { classifyPreview, loadCategoryOptions } from "@/lib/review/classify";
+import { findDuplicateCandidates } from "@/lib/import/duplicates";
+import { ensureTransfersCategory } from "@/lib/categorize/transfers";
 import type {
+  DuplicateCandidate,
   ReviewDecisions,
   ReviewGroup,
   ReviewState,
@@ -138,6 +141,9 @@ export async function previewUpload(formData: FormData): Promise<void> {
     periodEnd: dates.length ? new Date(Math.max(...dates)).toISOString().slice(0, 10) : null,
   };
 
+  // Creating the preview is a write path, so the transfer category may be created
+  // here: the dialog can then recognise account movements straight away.
+  await ensureTransfersCategory();
   await savePreview(preview);
 
   revalidatePath("/import");
@@ -162,23 +168,55 @@ async function savePreview(preview: Preview): Promise<void> {
   });
 }
 
-/** Rows that will actually be written: duplicates of earlier imports are dropped. */
-async function freshRows(preview: Preview): Promise<PreviewRow[]> {
-  const known = new Set(
-    (
-      await prisma.transaction.findMany({
-        where: { dedupeHash: { in: preview.rows.map((r) => r.dedupeHash) } },
-        select: { dedupeHash: true },
-      })
-    ).map((r) => r.dedupeHash),
+/** Rows of this account within a fortnight of the import: the duplicate window. */
+async function loadDuplicateCandidates(preview: Preview): Promise<DuplicateCandidate[]> {
+  if (preview.rows.length === 0) return [];
+  const days = preview.rows.map((row) => new Date(row.bookedAt).getTime());
+  const from = new Date(Math.min(...days) - 14 * 86_400_000);
+  const to = new Date(Math.max(...days) + 14 * 86_400_000);
+
+  const existing = await prisma.transaction.findMany({
+    where: { accountId: preview.accountId, bookedAt: { gte: from, lte: to } },
+    select: {
+      id: true,
+      bookedAt: true,
+      amountCents: true,
+      description: true,
+      merchant: true,
+      dedupeHash: true,
+    },
+  });
+
+  return findDuplicateCandidates(
+    preview.rows.map((row, index) => ({
+      index,
+      bookedAt: row.bookedAt.slice(0, 10),
+      amountCents: row.amountCents,
+      description: row.description,
+      merchant: row.merchant,
+      dedupeHash: row.dedupeHash,
+    })),
+    existing.map((row) => ({ ...row, bookedAt: row.bookedAt.toISOString().slice(0, 10) })),
   );
-  return preview.rows.filter((row) => !known.has(row.dedupeHash));
+}
+
+/** The parsed rows, in the shape the classifier and the duplicate finder share. */
+function toInputRows(rows: PreviewRow[]) {
+  return rows.map((row) => ({
+    bookedAt: row.bookedAt.slice(0, 10),
+    amountCents: row.amountCents,
+    description: row.description,
+    merchant: row.merchant,
+    counterparty: row.counterparty,
+    counterpartyIban: row.counterpartyIban,
+  }));
 }
 
 function toReviewState(
   groups: ReviewGroup[],
   proposals: StoredProposals | undefined,
   categories: Awaited<ReturnType<typeof loadCategoryOptions>>,
+  duplicates: DuplicateCandidate[],
 ): ReviewState {
   const proposed = proposals?.categories ?? {};
   const withProposals = groups.map((group) => {
@@ -200,6 +238,7 @@ function toReviewState(
     groups: withProposals,
     ruleProposals,
     categories,
+    duplicates,
     ai: {
       configured: isAiConfigured(),
       model: AI_MODEL,
@@ -231,25 +270,16 @@ export async function loadReview(): Promise<LoadedReview | null> {
   const preview = await loadPreview();
   if (!preview) return null;
 
-  const fresh = await freshRows(preview);
-  const [groups, categories] = await Promise.all([
-    classifyPreview(
-      fresh.map((row) => ({
-        bookedAt: row.bookedAt.slice(0, 10),
-        amountCents: row.amountCents,
-        description: row.description,
-        merchant: row.merchant,
-        counterparty: row.counterparty,
-        counterpartyIban: row.counterpartyIban,
-      })),
-      undefined,
-      preview.accountId,
-    ),
+  const [groups, categories, duplicates] = await Promise.all([
+    classifyPreview(toInputRows(preview.rows), undefined, preview.accountId),
     loadCategoryOptions(),
+    loadDuplicateCandidates(preview),
   ]);
 
+  // Every row is shown: a suspected duplicate still needs a category if the user
+  // decides to import it.
   return {
-    review: toReviewState(groups, preview.proposals, categories),
+    review: toReviewState(groups, preview.proposals, categories, duplicates),
     summary: {
       filename: preview.filename,
       accountName: preview.accountName,
@@ -259,7 +289,8 @@ export async function loadReview(): Promise<LoadedReview | null> {
       sumCents: preview.sumCents,
       periodStart: preview.periodStart,
       periodEnd: preview.periodEnd,
-      saveCount: fresh.length,
+      saveCount:
+        preview.rows.length - duplicates.filter((d) => d.defaultDecision === "skip").length,
       rejected: preview.rejected,
     },
   };
@@ -276,20 +307,8 @@ export async function suggestForPreview(): Promise<void> {
   if (!preview) redirect("/import?error=no-preview");
   if (!isAiConfigured()) redirect("/import?preview=1&ai=not-configured");
 
-  const fresh = await freshRows(preview);
   const [groups, categories] = await Promise.all([
-    classifyPreview(
-      fresh.map((row) => ({
-        bookedAt: row.bookedAt.slice(0, 10),
-        amountCents: row.amountCents,
-        description: row.description,
-        merchant: row.merchant,
-        counterparty: row.counterparty,
-        counterpartyIban: row.counterpartyIban,
-      })),
-      undefined,
-      preview.accountId,
-    ),
+    classifyPreview(toInputRows(preview.rows), undefined, preview.accountId),
     loadCategoryOptions(),
   ]);
 
@@ -340,64 +359,91 @@ export async function suggestForPreview(): Promise<void> {
 const decisionsSchema = z.object({
   categories: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
   acceptedRules: z.array(z.string()).default([]),
+  duplicates: z.record(z.string(), z.enum(["import", "skip"])).default({}),
 });
 
 function parseDecisions(raw: FormDataEntryValue | null): ReviewDecisions {
   if (typeof raw !== "string" || raw.length === 0 || raw.length > 200_000) {
-    return { categories: {}, acceptedRules: [] };
+    return { categories: {}, acceptedRules: [], duplicates: {} };
   }
   try {
     const parsed = decisionsSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : { categories: {}, acceptedRules: [] };
+    return parsed.success ? parsed.data : { categories: {}, acceptedRules: [], duplicates: {} };
   } catch {
-    return { categories: {}, acceptedRules: [] };
+    return { categories: {}, acceptedRules: [], duplicates: {} };
   }
 }
 
 /**
  * Writes the statement, its transactions and the approved rules in one go. Only
  * what the user approved is applied; a group left out of the decisions stays
- * exactly as it was (matched by a rule, or uncategorised).
+ * exactly as it was (matched by a rule or a transfer, or uncategorised), and a
+ * suspected duplicate is skipped unless the user said otherwise.
  */
 export async function commitPreview(formData: FormData): Promise<void> {
   const preview = await loadPreview();
   if (!preview) redirect("/import?error=no-preview");
 
   const decisions = parseDecisions(formData.get("decisions"));
-  const fresh = await freshRows(preview);
-  const groups = await classifyPreview(
-    fresh.map((row) => ({
-      bookedAt: row.bookedAt.slice(0, 10),
-      amountCents: row.amountCents,
-      description: row.description,
-      merchant: row.merchant,
-      counterparty: row.counterparty,
-      counterpartyIban: row.counterpartyIban,
-    })),
-    undefined,
-    preview.accountId,
-  );
+  // The category has to exist before classification, or an account movement is
+  // not recognised as one and would count as income or expense.
+  await ensureTransfersCategory();
 
-  // A decision is per merchant, the write is per row: map row index -> hash once.
-  const hashByIndex = new Map(fresh.map((row, index) => [index, row.dedupeHash]));
+  const [groups, duplicates, categoryOptions] = await Promise.all([
+    classifyPreview(toInputRows(preview.rows), undefined, preview.accountId),
+    loadDuplicateCandidates(preview),
+    loadCategoryOptions(),
+  ]);
 
-  const validCategories = new Set((await loadCategoryOptions()).map((c) => c.id));
+  const duplicateByHash = new Map(duplicates.map((candidate) => [candidate.hash, candidate]));
+  const validCategories = new Set(categoryOptions.map((category) => category.id));
   const proposals = preview.proposals?.categories ?? {};
 
-  const perRow = new Map<string, { categoryId: string | null; source: string }>();
+  // One decision per merchant group, applied to every row of that group.
+  const perRow = new Map<number, { categoryId: string | null; source: string }>();
   for (const group of groups) {
     const decided = decisions.categories[group.key];
     const chosen = decided === undefined ? (group.match?.categoryId ?? null) : decided;
     if (chosen !== null && !validCategories.has(chosen)) continue;
     const fromAi = chosen !== null && proposals[group.key] === chosen;
     const source = chosen === null ? "NONE" : fromAi ? "AI" : group.match ? "RULE" : "MANUAL";
-    for (const row of group.rows) {
-      const hash = hashByIndex.get(row.index);
-      if (hash) perRow.set(hash, { categoryId: chosen, source });
-    }
+    for (const row of group.rows) perRow.set(row.index, { categoryId: chosen, source });
   }
 
-  const rows = preview.rows.map((row) => ({ ...row, bookedAt: new Date(row.bookedAt) }));
+  // Hashes already stored: approving an exact duplicate means it needs a new one,
+  // because dedupeHash is unique by design.
+  const taken = new Set(
+    (
+      await prisma.transaction.findMany({
+        where: { dedupeHash: { in: preview.rows.map((row) => row.dedupeHash) } },
+        select: { dedupeHash: true },
+      })
+    ).map((row) => row.dedupeHash),
+  );
+  const freeHash = (hash: string): string => {
+    if (!taken.has(hash)) {
+      taken.add(hash);
+      return hash;
+    }
+    for (let suffix = 2; suffix < 100; suffix += 1) {
+      const candidate = `${hash}-${suffix}`;
+      if (!taken.has(candidate)) {
+        taken.add(candidate);
+        return candidate;
+      }
+    }
+    const fallback = `${hash}-${Date.now()}`;
+    taken.add(fallback);
+    return fallback;
+  };
+
+  const insert: { index: number; row: PreviewRow; storedHash: string }[] = [];
+  preview.rows.forEach((row, index) => {
+    const candidate = duplicateByHash.get(row.dedupeHash);
+    const decision = decisions.duplicates[row.dedupeHash] ?? candidate?.defaultDecision ?? "import";
+    if (decision === "skip") return;
+    insert.push({ index, row, storedHash: freeHash(row.dedupeHash) });
+  });
 
   const statement = await prisma.statement.create({
     data: {
@@ -414,8 +460,8 @@ export async function commitPreview(formData: FormData): Promise<void> {
   let rulesCreated = 0;
   const imported = await prisma.$transaction(async (tx) => {
     await tx.transaction.createMany({
-      data: fresh.map((row) => {
-        const decision = perRow.get(row.dedupeHash);
+      data: insert.map(({ index, row, storedHash }) => {
+        const decision = perRow.get(index);
         const categoryId = decision?.categoryId ?? null;
         return {
           accountId: preview.accountId,
@@ -432,7 +478,7 @@ export async function commitPreview(formData: FormData): Promise<void> {
           categorySource: categoryId ? (decision?.source ?? "MANUAL") : "NONE",
           reviewState: categoryId ? "OK" : "UNCATEGORIZED",
           rawJson: row.rawJson,
-          dedupeHash: row.dedupeHash,
+          dedupeHash: storedHash,
         };
       }),
     });
@@ -479,9 +525,9 @@ export async function commitPreview(formData: FormData): Promise<void> {
 
     await tx.statement.update({
       where: { id: statement.id },
-      data: { importedCount: fresh.length, skippedCount: rows.length - fresh.length },
+      data: { importedCount: insert.length, skippedCount: preview.rows.length - insert.length },
     });
-    return fresh.length;
+    return insert.length;
   });
 
   await prisma.setting.delete({ where: { key: PREVIEW_KEY } });
@@ -492,7 +538,9 @@ export async function commitPreview(formData: FormData): Promise<void> {
   revalidatePath("/settings");
   revalidatePath("/accounts");
   revalidatePath("/");
-  redirect(`/import?done=${imported}&skipped=${rows.length - imported}&rules=${rulesCreated}`);
+  redirect(
+    `/import?done=${imported}&skipped=${preview.rows.length - imported}&rules=${rulesCreated}`,
+  );
 }
 
 export async function cancelPreview(): Promise<void> {

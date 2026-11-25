@@ -2,19 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { classifyPreview, groupRows, loadCategoryOptions, type PreviewInputRow } from "@/lib/review/classify";
 import type { ReviewGroup } from "@/lib/review/types";
 
-const { ruleFindMany, merchantFindMany, txnFindMany, categoryFindMany } = vi.hoisted(() => ({
-  ruleFindMany: vi.fn(),
-  merchantFindMany: vi.fn(),
-  txnFindMany: vi.fn(),
-  categoryFindMany: vi.fn(),
-}));
+const { ruleFindMany, merchantFindMany, txnFindMany, categoryFindMany, categoryFindFirst, accountFindMany } =
+  vi.hoisted(() => ({
+    ruleFindMany: vi.fn(),
+    merchantFindMany: vi.fn(),
+    txnFindMany: vi.fn(),
+    categoryFindMany: vi.fn(),
+    categoryFindFirst: vi.fn(),
+    accountFindMany: vi.fn(),
+  }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     rule: { findMany: ruleFindMany },
     merchantMap: { findMany: merchantFindMany },
     transaction: { findMany: txnFindMany },
-    category: { findMany: categoryFindMany },
+    category: { findMany: categoryFindMany, findFirst: categoryFindFirst },
+    account: { findMany: accountFindMany },
   },
 }));
 
@@ -44,6 +48,8 @@ beforeEach(() => {
   merchantFindMany.mockResolvedValue([]);
   txnFindMany.mockResolvedValue([]);
   categoryFindMany.mockResolvedValue([]);
+  categoryFindFirst.mockResolvedValue(null); // no Transfers category: detection off
+  accountFindMany.mockResolvedValue([]);
 });
 
 describe("groupRows", () => {
@@ -195,6 +201,81 @@ describe("classifyPreview", () => {
 
     expect(groups.map((group) => group.key)).toEqual(["FLORIST", "SHELL", "BAKERY"]);
     expect(groups[2].match).not.toBeNull();
+  });
+});
+
+describe("classifyPreview transfers", () => {
+  const ownAccounts = [
+    { id: "a1", name: "ASN Checking", iban: "NL91ABNA0417164300" },
+    { id: "a2", name: "PayPal", iban: null },
+  ];
+
+  it("matches an account transfer to the Transfers category", async () => {
+    accountFindMany.mockResolvedValue(ownAccounts);
+    categoryFindFirst.mockResolvedValue({ id: "cat-transfers" });
+
+    const groups = await classifyPreview(
+      [
+        {
+          bookedAt: "2026-03-02",
+          amountCents: 5000,
+          description: "Van PayPal",
+          merchant: "PAYPAL",
+          counterpartyIban: "NL91ABNA0417164300",
+        },
+      ],
+      undefined,
+      "a2",
+    );
+
+    expect(groups[0].match).toEqual({
+      ruleId: "",
+      ruleName: "Account transfer",
+      categoryId: "cat-transfers",
+    });
+  });
+
+  it("beats a rule, because a transfer must never land in a spending category", async () => {
+    accountFindMany.mockResolvedValue(ownAccounts);
+    categoryFindFirst.mockResolvedValue({ id: "cat-transfers" });
+    ruleFindMany.mockResolvedValue([{ ...lidlRule, pattern: "PAYPAL", categoryId: "cat-shopping" }]);
+
+    const groups = await classifyPreview(
+      [{ bookedAt: "2026-03-02", amountCents: 5000, description: "Van PayPal", merchant: "PAYPAL" }],
+      undefined,
+      "a1",
+    );
+
+    expect(groups[0].match?.categoryId).toBe("cat-transfers");
+  });
+
+  it("leaves the row unmatched when the Transfers category does not exist", async () => {
+    accountFindMany.mockResolvedValue(ownAccounts);
+    categoryFindFirst.mockResolvedValue(null);
+
+    const groups = await classifyPreview(
+      [
+        {
+          bookedAt: "2026-03-02",
+          amountCents: 5000,
+          description: "Van PayPal",
+          merchant: "PAYPAL",
+          counterpartyIban: "NL91ABNA0417164300",
+        },
+      ],
+      undefined,
+      "a2",
+    );
+
+    expect(groups[0].match).toBeNull();
+  });
+
+  it("does not treat an ordinary shop as a transfer", async () => {
+    accountFindMany.mockResolvedValue(ownAccounts);
+    categoryFindFirst.mockResolvedValue({ id: "cat-transfers" });
+
+    const groups = await classifyPreview(rows, undefined, "a1");
+    expect(groups.every((group) => group.match === null)).toBe(true);
   });
 });
 

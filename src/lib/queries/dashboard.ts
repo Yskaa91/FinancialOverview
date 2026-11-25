@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { notTransfer } from "./filters";
 import { currentMonthRange, daysAgo } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
 
@@ -30,17 +31,17 @@ export async function getDashboard(): Promise<DashboardData> {
   const [monthIncome, monthExpense, uncategorized, expenseByCategory, recent] =
     await Promise.all([
       prisma.transaction.aggregate({
-        where: { bookedAt: { gte: start, lt: end }, amountCents: { gt: 0 }, transferGroupId: null },
+        where: { bookedAt: { gte: start, lt: end }, amountCents: { gt: 0 }, ...notTransfer },
         _sum: { amountCents: true },
       }),
       prisma.transaction.aggregate({
-        where: { bookedAt: { gte: start, lt: end }, amountCents: { lt: 0 }, transferGroupId: null },
+        where: { bookedAt: { gte: start, lt: end }, amountCents: { lt: 0 }, ...notTransfer },
         _sum: { amountCents: true },
       }),
-      prisma.transaction.count({ where: { categoryId: null, transferGroupId: null } }),
+      prisma.transaction.count({ where: { categoryId: null, ...notTransfer } }),
       prisma.transaction.groupBy({
         by: ["categoryId"],
-        where: { bookedAt: { gte: start, lt: end }, amountCents: { lt: 0 }, transferGroupId: null },
+        where: { bookedAt: { gte: start, lt: end }, amountCents: { lt: 0 }, ...notTransfer },
         _sum: { amountCents: true },
       }),
       prisma.transaction.findMany({

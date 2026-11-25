@@ -77,6 +77,36 @@ export type ReviewDecisions = {
   categories: Record<string, string | null>;
   /** Group keys whose proposed rule should be created. */
   acceptedRules: string[];
+  /** incoming row hash -> what to do with a suspected duplicate. */
+  duplicates: Record<string, "import" | "skip">;
+};
+
+/**
+ * A row that looks like it is already in the database: either literally the same
+ * transaction (an overlapping import), or one close enough in date and amount to
+ * be worth a human look. Skipped by default when exact, imported by default
+ * otherwise, and always shown before anything is written.
+ */
+export type DuplicateCandidate = {
+  /** The incoming row's dedupe hash: also the key in ReviewDecisions.duplicates. */
+  hash: string;
+  kind: "EXACT" | "LIKELY";
+  reason: "same-hash" | "same-amount-near-date" | "same-amount-same-merchant";
+  row: {
+    bookedAt: string;
+    amountCents: number;
+    description: string;
+    merchant: string | null;
+  };
+  existing: {
+    id: string;
+    bookedAt: string;
+    amountCents: number;
+    description: string;
+    merchant: string | null;
+  };
+  /** What the dialog (and the commit) does when the user does not touch it. */
+  defaultDecision: "import" | "skip";
 };
 
 export type AiStatus = {
@@ -94,4 +124,6 @@ export type ReviewState = {
   ruleProposals: RuleProposal[];
   categories: CategoryOption[];
   ai: AiStatus;
+  /** Suspected duplicates for the rows in this import. Empty when none. */
+  duplicates: DuplicateCandidate[];
 };

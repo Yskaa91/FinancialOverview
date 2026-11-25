@@ -9,6 +9,7 @@ import {
   confirmCategory,
 } from "@/lib/categorize/rules";
 import { isAiConfigured, suggestForUncategorised } from "@/lib/categorize/ai";
+import { ensureTransfersCategory } from "@/lib/categorize/transfers";
 import { redirect } from "next/navigation";
 
 const setSchema = z.object({
@@ -47,13 +48,14 @@ export async function runRules(): Promise<void> {
   revalidatePath("/settings");
 }
 
-/** Moves a row out of income/expense by marking it as a transfer. */
+/** Moves a row out of income/expense: one transfer category, no pairing. */
 export async function markAsTransfer(formData: FormData): Promise<void> {
   const id = formData.get("transactionId");
   if (typeof id !== "string" || !id) return;
+  const transfersId = await ensureTransfersCategory();
   await prisma.transaction.update({
     where: { id },
-    data: { transferGroupId: `manual-${id}`, reviewState: "OK" },
+    data: { categoryId: transfersId, categorySource: "RULE", reviewState: "OK" },
   });
   revalidatePath("/transactions");
   revalidatePath("/");

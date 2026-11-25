@@ -12,6 +12,7 @@ import { formatDay } from "@/lib/dates";
 import { formatCents, formatCentsSigned } from "@/lib/money";
 import type {
   CategoryOption,
+  DuplicateCandidate,
   ReviewDecisions,
   ReviewGroup,
   ReviewState,
@@ -21,7 +22,10 @@ import type {
 /** The dialog's props live in actions.ts, so the two can never drift apart. */
 export type ReviewSummary = LoadedReview["summary"];
 
+type DuplicateDecision = "import" | "skip";
+
 const KIND_ORDER = ["EXPENSE", "INCOME", "TRANSFER"] as const;
+const DUPLICATE_CHOICES = ["import", "skip"] as const;
 
 /** yyyy-mm-dd -> "31-01-2026". Parsed as UTC midnight, the way rows are stored. */
 function day(iso: string | null): string {
@@ -267,6 +271,148 @@ function RuleProposalRow({
   );
 }
 
+function DuplicateBlock({
+  candidates,
+  overrides,
+  onDecide,
+  onAll,
+}: {
+  candidates: DuplicateCandidate[];
+  overrides: Record<string, DuplicateDecision>;
+  onDecide: (hash: string, decision: DuplicateDecision) => void;
+  onAll: (decision: DuplicateDecision) => void;
+}) {
+  const decided = (candidate: DuplicateCandidate) =>
+    overrides[candidate.hash] ?? candidate.defaultDecision;
+  const toImport = candidates.filter((candidate) => decided(candidate) === "import").length;
+  const toSkip = candidates.length - toImport;
+
+  return (
+    <section className="mb-4 rounded-lg border border-border bg-surface-muted/50 p-2">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Possible duplicates — {plural(candidates.length, "row")}
+          </h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Overlapping statements are normal. Check these before saving.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onAll("import")}
+            className="rounded border border-border bg-surface px-2 py-1 text-[11px] hover:bg-surface-muted"
+          >
+            Import all
+          </button>
+          <button
+            type="button"
+            onClick={() => onAll("skip")}
+            className="rounded border border-border bg-surface px-2 py-1 text-[11px] hover:bg-surface-muted"
+          >
+            Skip all
+          </button>
+        </div>
+      </div>
+
+      <table className="data-table w-full text-sm">
+        <thead className="text-[11px] uppercase tracking-wide text-muted">
+          <tr className="border-b border-border text-left">
+            <th className="py-2 pr-2 font-medium">Check</th>
+            <th className="py-2 pr-2 font-medium">Date</th>
+            <th className="py-2 pr-2 text-right font-medium">Amount</th>
+            <th className="py-2 pr-2 font-medium">Incoming row</th>
+            <th className="py-2 pr-2 font-medium">In the database</th>
+            <th className="py-2 font-medium">Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          {candidates.map((candidate) => {
+            const decision = decided(candidate);
+            return (
+              <tr key={candidate.hash} className="border-b border-border/60">
+                <td className="py-1 pr-2 align-top">
+                  <span
+                    className={`inline-block rounded border px-1 text-[10px] font-medium uppercase tracking-wide ${
+                      candidate.kind === "EXACT"
+                        ? "border-negative/40 bg-negative/5 text-negative"
+                        : "border-accent/40 bg-accent/5 text-accent"
+                    }`}
+                  >
+                    {candidate.kind}
+                  </span>
+                  <div className="mt-0.5 max-w-[11rem] text-[10px] leading-tight text-muted">
+                    {candidate.kind === "EXACT"
+                      ? "already imported"
+                      : "looks the same as an existing row"}
+                  </div>
+                </td>
+                <td className="whitespace-nowrap py-1 pr-2 align-top text-xs tabular">
+                  {day(candidate.row.bookedAt)}
+                </td>
+                <td
+                  className={`whitespace-nowrap py-1 pr-2 align-top text-right text-xs tabular ${
+                    candidate.row.amountCents < 0 ? "text-negative" : "text-positive"
+                  }`}
+                >
+                  {formatCents(candidate.row.amountCents)}
+                </td>
+                <td className="py-1 pr-2 align-top">
+                  <div className="max-w-[18rem] truncate text-xs" title={candidate.row.description}>
+                    {candidate.row.merchant ?? candidate.row.description}
+                  </div>
+                  {candidate.row.merchant && (
+                    <div className="max-w-[18rem] truncate text-[10px] text-muted" title={candidate.row.description}>
+                      {candidate.row.description}
+                    </div>
+                  )}
+                </td>
+                <td className="py-1 pr-2 align-top text-[11px] text-muted">
+                  <span className="whitespace-nowrap tabular">{day(candidate.existing.bookedAt)}</span>{" "}
+                  <span
+                    className="inline-block max-w-[14rem] truncate align-bottom"
+                    title={candidate.existing.description}
+                  >
+                    {candidate.existing.merchant ?? candidate.existing.description}
+                  </span>{" "}
+                  <span className="whitespace-nowrap tabular">
+                    {formatCents(candidate.existing.amountCents)}
+                  </span>
+                </td>
+                <td className="py-1 align-top">
+                  <div className="inline-flex overflow-hidden rounded border border-border text-[11px]">
+                    {DUPLICATE_CHOICES.map((choice) => (
+                      <label key={choice} className="border-l border-border first:border-l-0">
+                        <input
+                          type="radio"
+                          name={`duplicate-${candidate.hash}`}
+                          value={choice}
+                          checked={decision === choice}
+                          onChange={() => onDecide(candidate.hash, choice)}
+                          className="peer sr-only"
+                        />
+                        <span className="block cursor-pointer px-2 py-0.5 text-muted hover:bg-surface-muted peer-checked:bg-accent peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-accent">
+                          {choice === "import" ? "Import" : "Skip"}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <p className="mt-1 text-[11px] text-muted" role="status">
+        <span className="tabular">{toImport}</span> to import,{" "}
+        <span className="tabular">{toSkip}</span> to skip
+      </p>
+    </section>
+  );
+}
+
 /**
  * The preview step. It is a dialog because reviewing is a decision, not a page:
  * everything the statement needs to be saved is in here, and one footer button
@@ -281,6 +427,8 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
   const [rules, setRules] = useState<string[]>(() =>
     review.ruleProposals.map((proposal) => proposal.key),
   );
+  // Duplicate rows the user has overridden; anything absent keeps its default.
+  const [duplicates, setDuplicates] = useState<Record<string, DuplicateDecision>>({});
   const cancelForm = useRef<HTMLFormElement>(null);
 
   const close = useCallback(() => cancelForm.current?.requestSubmit(), []);
@@ -307,7 +455,32 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
     if (group.proposedCategoryId) categories[group.key] = group.proposedCategoryId;
   }
   Object.assign(categories, touched);
-  const decisions: ReviewDecisions = { categories, acceptedRules: rules };
+
+  // Only deviations travel: an absent duplicate falls back to defaultDecision.
+  const duplicateDecisions: Record<string, DuplicateDecision> = {};
+  for (const candidate of review.duplicates) {
+    const chosen = duplicates[candidate.hash] ?? candidate.defaultDecision;
+    if (chosen !== candidate.defaultDecision) duplicateDecisions[candidate.hash] = chosen;
+  }
+
+  const decisions: ReviewDecisions = {
+    categories,
+    acceptedRules: rules,
+    duplicates: duplicateDecisions,
+  };
+
+  // The server's saveCount already honours defaultDecision, so only the flips move it.
+  let writeCount = summary.saveCount;
+  for (const candidate of review.duplicates) {
+    const chosen = duplicates[candidate.hash] ?? candidate.defaultDecision;
+    if (chosen !== candidate.defaultDecision) writeCount += chosen === "import" ? 1 : -1;
+  }
+  writeCount = Math.max(0, writeCount);
+
+  const setAllDuplicates = (decision: DuplicateDecision) =>
+    setDuplicates(
+      Object.fromEntries(review.duplicates.map((candidate) => [candidate.hash, decision])),
+    );
 
   const toggleRule = (key: string) =>
     setRules((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
@@ -319,6 +492,22 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
     }
     setTouched(next);
     setRules(review.ruleProposals.map((proposal) => proposal.key));
+  };
+
+  /**
+   * The counterpart of approveAll: only suggestions are denied. A rule-matched or
+   * transfer group was never a suggestion, so it keeps its category and stays out
+   * of the decisions.
+   */
+  const denyAll = () => {
+    const next: Record<string, string | null> = {};
+    for (const group of review.groups) {
+      if (group.proposedCategoryId !== null || touched[group.key] !== undefined) {
+        next[group.key] = null;
+      }
+    }
+    setTouched(next);
+    setRules([]);
   };
 
   const categorised = unmatched.filter((group) => valueOf(group) !== "").length;
@@ -356,7 +545,7 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
                 type="submit"
                 className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white"
               >
-                Save {plural(summary.saveCount, "transaction")}
+                Save {plural(writeCount, "transaction")}
               </button>
             </div>
           </form>
@@ -382,10 +571,33 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
               Approve all suggestions
             </button>
           )}
+          {(suggested > 0 ||
+            review.ruleProposals.length > 0 ||
+            Object.keys(touched).length > 0 ||
+            rules.length > 0) && (
+            <button
+              type="button"
+              onClick={denyAll}
+              className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-surface-muted"
+            >
+              Deny all suggestions
+            </button>
+          )}
           <p className="text-xs text-muted" role="status">
             {aiMessage(review.ai, suggested, review.ruleProposals.length)}
           </p>
         </div>
+
+        {review.duplicates.length > 0 && (
+          <DuplicateBlock
+            candidates={review.duplicates}
+            overrides={duplicates}
+            onDecide={(hash, decision) =>
+              setDuplicates((prev) => ({ ...prev, [hash]: decision }))
+            }
+            onAll={setAllDuplicates}
+          />
+        )}
 
         {summary.rejected.length > 0 && (
           <div className="mb-3 text-xs text-muted">

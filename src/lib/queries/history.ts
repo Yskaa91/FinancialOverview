@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { notTransfer } from "./filters";
 import { fifo, positionValueCents, type TradeInput } from "@/lib/portfolio/trades";
 
 export type NetWorthPoint = { date: string; cents: number };
@@ -94,7 +95,7 @@ export async function cashflowSeries(months = 12): Promise<CashflowPoint[]> {
   const rows = await prisma.transaction.findMany({
     where: {
       bookedAt: { gte: new Date(Date.UTC(ends[0].getUTCFullYear(), ends[0].getUTCMonth(), 1)) },
-      transferGroupId: null,
+      ...notTransfer,
     },
     select: { bookedAt: true, amountCents: true },
   });
