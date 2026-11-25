@@ -12,10 +12,12 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-lg border border-border bg-surface p-5 ${className}`}>
+    <section className={`rounded-lg border border-border bg-surface p-3 ${className}`}>
       {(title ?? action) && (
-        <header className="mb-4 flex items-baseline justify-between gap-3">
-          {title && <h2 className="text-sm font-medium text-muted">{title}</h2>}
+        <header className="mb-3 flex items-baseline justify-between gap-3">
+          {title && (
+            <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted">{title}</h2>
+          )}
           {action}
         </header>
       )}
@@ -45,9 +47,9 @@ export function Stat({
 }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
       <div
-        className={`tabular mt-1 ${large ? "text-3xl" : "text-xl"} font-semibold ${toneClass[tone]}`}
+        className={`tabular mt-1 ${large ? "text-2xl" : "text-lg"} font-semibold leading-tight ${toneClass[tone]}`}
       >
         {value}
       </div>
@@ -58,18 +60,18 @@ export function Stat({
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <p className="font-medium">{title}</p>
-      {children && <div className="mt-2 text-sm text-muted">{children}</div>}
+    <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      {children && <div className="mx-auto mt-2 max-w-prose text-xs text-muted">{children}</div>}
     </div>
   );
 }
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <header className="mb-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+    <header className="mb-4">
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
     </header>
   );
 }

@@ -1,71 +1,77 @@
 # Tooling: plugins, skills and MCP servers
 
-What helps this project, what is already here, and what to install. Honest
-inventory first: this machine has exactly one plugin, the one shipped with
-Vibe, and it contains no finance or UI skills.
+What helps this project, what is installed already, and what to add next.
+Everything below is **project-scoped**: `.vibe/skills/` and `.vibe/config.toml`,
+nothing in `~/.vibe/`. A fresh clone gets the same setup. Project-local config is
+only read in a trusted folder, so this repo is listed in
+`~/.vibe/trusted_folders.toml`.
 
-## Already available
+## Installed skills
 
-| Item | Verdict for this project |
+| Skill | Why it is here |
 |---|---|
-| `vibe:vibe` skill | Reference for CLI/config questions. Useful, unrelated to finance. |
-| `vibe:skill-creator` | Use it to author the project skills listed below. |
-| `vibe:create-plugin` | Only needed if these skills should ship as a package. Not now. |
-| `vibe:worktree` | Useful for parallel phases in git worktrees. Optional. |
-| `vibe:import` | Irrelevant (no other CLI config to migrate). |
-| `connector_web_search` | Real value: format research, ETF price/ISIN lookups, library checks. |
-| file system + process tools | Enough to run dev server, migrations, tests. |
+| `ui-ux-pro-max` | Design intelligence for this UI: 80 styles, palettes, 74 font pairings, 141 UX rules, chart guidance, 22 stacks. Local Python search, no network. |
+| `design-system` | Token architecture (primitive → semantic → component), component specs, Tailwind integration. Backs the tokens in `src/app/globals.css`. |
 
-There is no finance-expertise skill, no UI-design skill, and no plugin
-marketplace reachable from this session. Anything that looks like one has to be
-installed or written.
+Both are vendored from
+[`nextlevelbuilder/ui-ux-pro-max-skill`](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
+(`.claude/skills/*` → `.vibe/skills/*`), unmodified. They ship Python scripts and
+CSV data, no install hooks, no network calls. ESLint ignores `.vibe/**` because
+that code is not ours.
 
-## Install: MCP servers
+Query them from the repo root:
 
-These are the ones with a concrete payoff here. Install with
-`vibe mcp add <name> -- <command>` (run `vibe mcp add --help` for the exact
-argument shape of your build).
+```bash
+python3 .vibe/skills/ui-ux-pro-max/scripts/search.py "personal finance dashboard" --domain style
+python3 .vibe/skills/ui-ux-pro-max/scripts/search.py "data dense financial table" --domain typography
+python3 .vibe/skills/design-system/scripts/search.py "table" --domain component   # see SKILL.md for modes
+```
 
-| MCP server | Why | When |
+Not vendored, available on request: `ui-styling` (shadcn/canvas, 5.8 MB),
+`design` (logo/CIP/slides), `brand`, `slides`, `banner-design`. Install them only
+when a task needs them — they are marketing-asset skills, not app skills.
+
+## Installed MCP servers
+
+Configured in `.vibe/config.toml`, started on demand with `npx` (so `npx` must be
+on `PATH`; this machine's Node lives in `~/.local/bin`).
+
+| Server | Version | Why |
 |---|---|---|
-| `context7` | Version-current docs for Next.js, Prisma, Recharts, shadcn. Prevents hallucinated APIs, which is the most common failure mode in this stack. | Before phase 1 |
-| `shadcn` (registry MCP) | Component search and correct registry installs; keeps the UI coherent instead of hand-rolling tables and selects. | Phase 0–1 |
-| `playwright` | Drives the real UI so import flows and keyboard navigation can be checked without manual clicking. | Phase 2 onward |
-| `sqlite` | Ad-hoc queries against `dev.db` while debugging imports and aggregates. | Phase 2 onward |
-| `prisma mcp` | Ships with Prisma 7 (`npx prisma mcp`): schema and query help that matches the installed major version. Complements Context7, and needs no separate install. | Now |
+| `context7` | `@upstash/context7-mcp@4.8.0` | Version-current docs for Next.js 16, Prisma 7, Recharts, shadcn. Prevents hallucinated APIs, the main failure mode in this stack. |
+| `shadcn` | `shadcn@4.23.0 mcp` | Component search and correct registry installs for the UI. |
 
-Deliberately not installed: any "AI finance advisor" MCP. Categorisation is one
-HTTP call with a strict JSON contract (see `docs/ARCHITECTURE.md` §6); wrapping
-it in an MCP server adds a moving part for no gain.
+Deliberately not added: `playwright` (real value for import-flow smoke tests, but
+it downloads browsers — add when phase 2 needs it), `sqlite` (use
+`npx prisma studio` or `npm run db:studio`), and any "AI finance advisor" MCP
+(categorisation is one HTTP call with a strict JSON contract, see
+`docs/ARCHITECTURE.md` §6).
 
-## Write: project skills
+`npx prisma mcp` ships with Prisma 7 and needs no config; use it for schema work.
 
-Four small skills under `.vibe/skills/` would carry the conventions that are
-expensive to re-derive. Author them with `vibe:skill-creator`.
+## Design decisions taken from the skill
+
+Recorded so the next change can trace them:
+
+| Decision | Source |
+|---|---|
+| Style: **data-dense dashboard** — 12-col grid, 8–12 px gaps, 36 px table rows, 12 px card padding, sticky table headers | `--domain style` → `styles.csv#data-dense-dashboard` |
+| Typography: **Financial Trust** — IBM Plex Sans (UI) + IBM Plex Mono (figures), 14 px base, `tnum` on all amounts | `--domain typography` |
+| Accessibility: visible `:focus-visible` ring on every control, skip-link, ≥ 4.5:1 muted text in both schemes, `prefers-reduced-motion` honoured | skill priority 1–2 + `references/pro-rules.md` |
+| Icons: Lucide SVG only, never emoji | `references/pro-rules.md` |
+
+The generic `--design-system` query returned a landing-page pattern
+(hero + glassmorphism, Caveat/Quicksand) which does not fit an internal ledger.
+Per the skill's own query contract it was re-run per domain and the domain
+results above were used instead.
+
+## Project skills still worth writing
+
+Author these with `vibe:skill-creator` when the work reaches them:
 
 | Skill | Contents |
 |---|---|
-| `finance-domain` | Money as integer cents, expense-negative convention, Dutch statement quirks (decimal comma, `DD-MM-YYYY`, ICS sign flip), transfer pairing, what may and may not leave the machine. |
-| `statement-parser` | The `RawRow → NRow` contract, how to add a source: parser file, fixture, test, dedupe visit. The checklist that keeps imports idempotent. |
-| `ui-kit` | shadcn + Tailwind + Recharts conventions: table layout for dense numeric data, right-aligned amounts, tabular figures, chart fallbacks, empty states, no decoration that costs density. |
-| `prisma-sqlite` | SQLite limits (no enum, no Decimal, no arrays), `Int` cents boundaries, migration discipline, transaction-per-import. |
-
-Local skills win over re-explaining the same rules in every session, and they
-live in the repo, so they survive a fresh clone.
-
-## Skills worth writing later
-
-- `dashboard-metrics` — definition of every number on the dashboard, so a metric
-  never silently changes meaning.
-- `import-recovery` — what to do when a parser throws after a format change:
-  re-derive from `rawJson` instead of asking for a new export.
-
-## Domain references to lean on instead of inventing
-
-- Open-source ledger importers (hledger `csvrules`, Firefly III importers) for
-  edge cases already solved: sign conventions, transfer detection, duplicate
-  suppression.
-- Official statement-format pages, recorded per source in
-  `docs/IMPORT-FORMATS.md` with the evidence found.
-- yfinance / Stooq quirks: Stooq CSV is free and keyless, which is why prices
-  start there rather than with a paid API.
+| `finance-domain` | Money as integer cents, expense-negative convention, Dutch statement quirks, transfer pairing, what may and may not leave the machine. |
+| `statement-parser` | The `RawRow → NRow` contract, how to add a source: parser, fixture, test, dedupe visit. |
+| `prisma-sqlite` | SQLite/Prisma 7 limits (no enum/Decimal/arrays), `Int` cents boundaries, transaction-per-import. |
+| `dashboard-metrics` | Definition of every number on the dashboard, so a metric never silently changes meaning. |

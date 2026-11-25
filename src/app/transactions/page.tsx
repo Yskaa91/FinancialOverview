@@ -102,9 +102,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           }
         >
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+            <table className="data-table w-full text-sm">
+              <thead className="text-[11px]">
+                <tr className="border-b border-border text-left uppercase tracking-wide text-muted">
                   <th className="py-2 pr-3 font-medium">Datum</th>
                   <th className="py-2 pr-3 font-medium">Omschrijving</th>
                   <th className="py-2 pr-3 font-medium">Rekening</th>

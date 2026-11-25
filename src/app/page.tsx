@@ -28,7 +28,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <Stat label="Netto vermogen" value={formatCents(data.netWorthCents)} large />
         </Card>
@@ -57,7 +57,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <Card title="Bezittingen en schulden">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -110,12 +110,12 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <Card title="Rekeningen">
           {data.accounts.length === 0 ? (
             <p className="text-sm text-muted">Geen rekeningen.</p>
           ) : (
-            <ul className="divide-y divide-border text-sm">
+            <ul className="divide-y divide-border text-[13px]">
               {data.accounts.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 py-2">
                   <Link href={`/accounts/${a.id}`} className="truncate hover:underline">
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
           {data.recent.length === 0 ? (
             <p className="text-sm text-muted">Nog niets geïmporteerd.</p>
           ) : (
-            <ul className="divide-y divide-border text-sm">
+            <ul className="divide-y divide-border text-[13px]">
               {data.recent.map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-3 py-2">
                   <span className="min-w-0">

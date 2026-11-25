@@ -24,7 +24,7 @@ export default async function ImportPage() {
           en importeer daarna het afschrift.
         </EmptyState>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           <Card title="Stap 1 — bestand kiezen">
             <p className="text-sm text-muted">
               Kies de rekening en het bestand. De parserkeuze volgt uit de rekening

@@ -1,10 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// "Financial Trust" pairing from the ui-ux-pro-max typography data: one sans for
+// prose, one mono for figures and codes.
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+});
 
 export const metadata: Metadata = {
   title: "FinancialOverview",
@@ -15,17 +26,25 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="nl"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
+      <body className="min-h-full font-sans">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
+        >
+          Naar inhoud
+        </a>
         <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
           <aside className="shrink-0 border-border md:w-60 md:border-r">
-            <div className="px-5 py-5">
+            <div className="flex h-14 items-center px-4">
               <span className="text-sm font-semibold tracking-tight">FinancialOverview</span>
             </div>
             <Nav />
           </aside>
-          <main className="min-w-0 flex-1 px-5 py-6 md:px-8">{children}</main>
+          <main id="main" className="min-w-0 flex-1 px-4 py-5 md:px-6">
+            {children}
+          </main>
         </div>
       </body>
     </html>

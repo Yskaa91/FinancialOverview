@@ -20,7 +20,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Instellingen" subtitle="Categorieën, regels, AI en gegevens" />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <Card title="Categorieën">
           <p className="tabular text-2xl font-semibold">{categories}</p>
           <p className="mt-1 text-xs text-muted">
@@ -39,7 +39,7 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <Card title="Automatisch categoriseren">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -77,7 +77,7 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <Card title="Rekeningtypes">
           <ul className="grid gap-1 text-sm sm:grid-cols-2">
             {Object.entries(ACCOUNT_TYPE_LABELS).map(([key, label]) => (

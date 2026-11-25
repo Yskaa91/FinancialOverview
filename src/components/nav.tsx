@@ -23,29 +23,32 @@ export function Nav() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <nav className="flex flex-col gap-1 px-3 py-4" aria-label="Hoofdnavigatie">
-      {tabs.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          aria-current={isActive(href) ? "page" : undefined}
-          className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-            isActive(href)
-              ? "bg-foreground/10 font-medium text-foreground"
-              : "text-muted hover:bg-foreground/5 hover:text-foreground"
-          }`}
-        >
-          <Icon size={16} aria-hidden />
-          {label}
-        </Link>
-      ))}
+    <nav className="flex flex-col gap-0.5 px-2 pb-4" aria-label="Hoofdnavigatie">
+      {tabs.map(({ href, label, icon: Icon }) => {
+        const active = isActive(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className={`flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors ${
+              active
+                ? "bg-surface-muted font-medium text-foreground"
+                : "text-muted hover:bg-surface-muted hover:text-foreground"
+            }`}
+          >
+            <Icon size={16} aria-hidden strokeWidth={active ? 2.2 : 1.8} />
+            {label}
+          </Link>
+        );
+      })}
       <Link
         href="/import"
-        className={`mt-2 flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-foreground/5 ${
-          isActive("/import") ? "font-medium" : "text-muted hover:text-foreground"
+        className={`mt-2 flex h-9 items-center gap-2.5 rounded-md border border-border px-2.5 text-sm transition-colors hover:bg-surface-muted ${
+          isActive("/import") ? "font-medium text-foreground" : "text-muted hover:text-foreground"
         }`}
       >
-        <Upload size={16} aria-hidden />
+        <Upload size={16} aria-hidden strokeWidth={1.8} />
         Importeren
       </Link>
     </nav>

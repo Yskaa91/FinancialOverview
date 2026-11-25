@@ -49,8 +49,15 @@ Daarna: rekeningen toevoegen op `/accounts`, en importeren via `/import`.
   categorisatielogica, portefeuille, fasering, risico's.
 - [`docs/IMPORT-FORMATS.md`](docs/IMPORT-FORMATS.md) — exacte bestandsformaten van
   ASN, PayPal en ICS, met bronnen en wat níet gedocumenteerd is.
-- [`docs/TOOLING.md`](docs/TOOLING.md) — welke plugins, skills en MCP-servers helpen
-  bij dit project (en wat er al is).
+- [`docs/TOOLING.md`](docs/TOOLING.md) — project-scoped skills en MCP-servers,
+  en de designbeslissingen die daaruit volgen.
+
+## UI
+
+Dense dashboard: IBM Plex Sans voor tekst, IBM Plex Mono voor bedragen, 12 px
+kaartpadding, 36 px tabelregels, plakkende tabelkoppen, zichtbare focusring en
+een skip-link. Tokens staan in `src/app/globals.css`; wijzig ze daar, niet per
+component. Ontwerpkeuzes zijn herleidbaar in `docs/TOOLING.md`.
 
 ## Regels die niet mogen breken
 

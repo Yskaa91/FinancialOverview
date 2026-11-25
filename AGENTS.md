@@ -33,6 +33,11 @@ and `docs/IMPORT-FORMATS.md` before touching a parser.
   Server Actions in a sibling `actions.ts`, validated with Zod before Prisma.
 - Pages that read the database export `const dynamic = "force-dynamic"`.
 - Dutch UI copy, English code and comments.
+- Design tokens live in `src/app/globals.css` (density, colours, focus ring).
+  Change them there, not per component. `.vibe/skills/ui-ux-pro-max` is the
+  source for style, typography and UX rules — query it before redesigning.
+- `.vibe/skills/**` is vendored third-party code, unmodified and ESLint-ignored.
+  Do not edit it; re-copy from upstream if it must be updated.
 - `cacheComponents` is off on purpose (see `next.config.ts`); do not turn it on
   without moving DB reads into Suspense boundaries.
 - Prisma 7: the URL lives in `prisma.config.ts` (with `dotenv/config`) and in the

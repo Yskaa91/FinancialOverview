@@ -19,7 +19,7 @@ export default async function AccountsPage() {
         subtitle="Betaal, spaar, beleggen en creditcards op één plek"
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {accounts.map((a) => (
           <Card key={a.id} className="flex flex-col justify-between">
             <div>
@@ -58,7 +58,7 @@ export default async function AccountsPage() {
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-4">
         <Card title="Rekening toevoegen">
           <AddAccountForm />
         </Card>
