@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.3
+
+- **0.6.2 could not be built at all.** Dropping the compiler from the image
+  exposed a trap: better-sqlite3 ships prebuilt binaries but also ships a
+  `binding.gyp`, and npm reads a `binding.gyp` with no install script as "compile
+  this with node-gyp". With no `python3` in the image that build failed outright,
+  so the Supervisor aborted the update at `npm ci`. Dependencies now install with
+  `--ignore-scripts`, which skips the pointless compile, and the package loads
+  its own prebuilt `prebuilds/linux-<arch>.node` — the binary the app used
+  before, since it prefers a compiled build only when one exists.
+- **Prisma still gets what it needs.** `npm rebuild @prisma/engines` runs the one
+  install script that matters (the migration engine download), so `run.sh` still
+  migrates on start without touching the network.
+- **One better-sqlite3 instead of two.** The Prisma adapter asked for 12.x, which
+  has no prebuilds and would have to compile; an npm `overrides` entry pins it to
+  the 13.2.0 already declared, so there is a single copy, prebuilt, and about
+  12 MB less in the image.
+
 ## 0.6.2
 
 - **"Suggest with AI" works on large statements again.** The reply was budgeted

@@ -3,9 +3,14 @@
 # the Alpine Home Assistant base), and an Alpine base breaks the prebuilt engines
 # this app depends on: Prisma and better-sqlite3 ship glibc binaries.
 #
-# No compiler toolchain any more: those same prebuilt binaries mean `npm ci` never
-# runs node-gyp, so python3/make/g++ only cost an apt-get and a layer. If a future
-# dependency does have to compile, add them back to the deps stage.
+# No compiler toolchain, and none wanted: better-sqlite3 ships prebuilt binaries
+# for every platform, but it also ships a binding.gyp, and npm reads a binding.gyp
+# without an install script as "compile this with node-gyp". Without python3 that
+# build fails outright. `--ignore-scripts` skips it, and the package then loads
+# prebuilds/<platform>-<arch>.node, which is the binary we want anyway.
+# `overrides` keeps one better-sqlite3 in the tree, so the Prisma adapter gets the
+# prebuilt copy too instead of its own 12.x release, which has no prebuilds. The
+# only install step we do need is Prisma's engine download, so it runs by hand.
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 ENV NPM_CONFIG_AUDIT=false \
@@ -13,7 +18,8 @@ ENV NPM_CONFIG_AUDIT=false \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
     NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
-RUN npm ci --prefer-offline
+RUN npm ci --prefer-offline --ignore-scripts \
+ && npm rebuild @prisma/engines
 
 # -- Next.js build, then everything the runtime does not need is dropped ------
 FROM deps AS builder

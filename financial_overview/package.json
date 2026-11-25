@@ -42,5 +42,8 @@
     "better-sqlite3@13.2.0": true,
     "@prisma/engines@7.10.1": true,
     "prisma@7.10.1": true
+  },
+  "overrides": {
+    "better-sqlite3": "$better-sqlite3"
   }
 }
