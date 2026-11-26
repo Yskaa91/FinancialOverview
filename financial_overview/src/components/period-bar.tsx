@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MonthPicker } from "./period-month-picker";
 import {
   isFuture,
   periodOf,
@@ -49,7 +50,13 @@ export function PeriodBar({ period, compare }: { period: Period; compare: Compar
         >
           ←
         </Link>
-        <span className="min-w-[9.5rem] text-center font-medium">{period.label}</span>
+        {/* Month view: the label is the picker. Longer periods keep a plain
+            label, because a month input cannot say "Q4" or "2026". */}
+        {period.kind === "month" ? (
+          <MonthPicker value={period.key} compare={compare} />
+        ) : (
+          <span className="min-w-[9.5rem] text-center font-medium">{period.label}</span>
+        )}
         {isFuture(next, now) ? (
           <span className={`${PILL} border-border/60 text-muted/40`} aria-hidden>
             →
@@ -94,25 +101,12 @@ export function PeriodBar({ period, compare }: { period: Period; compare: Compar
         ))}
       </div>
 
-      <Link href="/" className="text-xs text-muted underline">
-        This month
-      </Link>
-
-      {/* Stepping month by month is fine for a quarter; jumping needs a picker.
-          Native month input, plain GET: no client JavaScript in the way. */}
-      <form action="/" method="get" className="flex items-center gap-1">
-        <input
-          type="month"
-          name="p"
-          defaultValue={periodOf("month", period.start).key}
-          aria-label="Jump to month"
-          className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground"
-        />
-        <input type="hidden" name="c" value={compare} />
-        <button type="submit" className={`${PILL} ${IDLE} text-xs`}>
-          Go
-        </button>
-      </form>
+      {/* Only worth a click when the user has actually walked away. */}
+      {period.key === periodOf("month", now).key ? null : (
+        <Link href="/" className="text-xs text-muted underline">
+          Back to this month
+        </Link>
+      )}
     </div>
   );
 }
