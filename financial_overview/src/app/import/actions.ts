@@ -22,6 +22,7 @@ import { classifyPreview, loadCategoryOptions } from "@/lib/review/classify";
 import { ruleCategoryFor } from "@/lib/review/rule-category";
 import { findDuplicateCandidates } from "@/lib/import/duplicates";
 import { ensureTransfersCategory } from "@/lib/categorize/transfers";
+import { linkTransfers, linkWindowFor } from "@/lib/transfers/link";
 import type {
   DuplicateCandidate,
   ReviewDecisions,
@@ -583,7 +584,12 @@ export async function commitPreview(formData: FormData): Promise<void> {
   await prisma.setting.delete({ where: { key: PREVIEW_KEY } });
   await categoriseUncategorised();
 
+  // Pair the new rows with the statements already on file — and with the ones
+  // imported later, which is why this runs on every import, not once.
+  await linkTransfers(linkWindowFor(preview.periodStart, preview.periodEnd));
+
   revalidatePath("/import");
+  revalidatePath("/reconcile");
   revalidatePath("/transactions");
   revalidatePath("/settings");
   revalidatePath("/accounts");

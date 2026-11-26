@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Statements are reconciled against each other.** The bank knew that €93,79 left
+  for PayPal; PayPal knew it went to Servicecenter Windhorn. Imported separately
+  the app counted both as spending. Rows that are the same money are now paired
+  (equal amount, dates within a week, one statement naming the other account) and
+  kept as two linked legs: the leg that names the shop keeps counting, the other
+  one moves its account balance and is kept out of income and expenses. A card bill
+  and its collection count on neither side.
+- **A new Reconciliation tab** shows the linked pairs, the settlement rows that
+  still have no partner (usually a statement that was never imported), statement
+  coverage per account, and a Match transfers button. Any two rows can be linked
+  or unlinked by hand.
+- **Direct debits have a name now.** ASN's `Europese incasso: …` narrative became
+  the merchant `EUROPESE INCASSO` for all 22 direct-debit rows in a month —
+  PayPal, the phone bill, the insurer, the card collection. The payee column is
+  the merchant now.
+## Unreleased
+
 - **PayPal rows no longer collapse into one merchant.** The parser took the first
   two words of the `Type` column as the merchant, so every shop paid through
   "Express Checkout Payment" became a single review group, labelled after whichever

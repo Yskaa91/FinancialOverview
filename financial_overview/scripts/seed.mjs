@@ -277,8 +277,6 @@ async function main() {
       reviewState: "OK",
       dedupeHash: nextHash("rail"),
     });
-
-    const payout = `${nextHash("invest")}`;
     add({
       accountId: accounts["ASN Checking"].id,
       bookedAt: monthDay(12),
@@ -287,7 +285,6 @@ async function main() {
       counterparty: "Brokerage",
       merchant: null,
       categoryId: transfers.id,
-      transferGroupId: payout,
       reviewState: "OK",
       dedupeHash: nextHash("invest-out"),
     });
@@ -298,12 +295,9 @@ async function main() {
       description: "STORTING VAN ASN CHECKING",
       counterparty: "ASN Checking",
       categoryId: transfers.id,
-      transferGroupId: payout,
       reviewState: "OK",
       dedupeHash: nextHash("invest-in"),
     });
-
-    const savingsGroup = nextHash("savings");
     add({
       accountId: accounts["ASN Checking"].id,
       bookedAt: monthDay(2),
@@ -311,7 +305,6 @@ async function main() {
       description: "SPAAROVERBOEKING",
       counterparty: "ASN Savings",
       categoryId: transfers.id,
-      transferGroupId: savingsGroup,
       reviewState: "OK",
       dedupeHash: nextHash("save-out"),
     });
@@ -322,13 +315,11 @@ async function main() {
       description: "VAN ASN CHECKING",
       counterparty: "ASN Checking",
       categoryId: transfers.id,
-      transferGroupId: savingsGroup,
       reviewState: "OK",
       dedupeHash: nextHash("save-in"),
     });
 
     // Credit card: purchases positive in ICS, stored negative, plus the settlement.
-    const settlement = nextHash("card-settle");
     add({
       accountId: accounts["ICS Credit Card"].id,
       bookedAt: monthDay(20),
@@ -357,7 +348,6 @@ async function main() {
       bookedAt: monthDay(22),
       amountCents: 42000,
       description: "GEINCASSEERD VORIG SALDO",
-      transferGroupId: settlement,
       reviewState: "OK",
       dedupeHash: nextHash("card-credit"),
     });
@@ -367,7 +357,6 @@ async function main() {
       amountCents: -42000,
       description: "ICS CREDITCARD INCASSO",
       counterparty: "ICS Credit Card",
-      transferGroupId: settlement,
       reviewState: "OK",
       dedupeHash: nextHash("card-debit"),
     });

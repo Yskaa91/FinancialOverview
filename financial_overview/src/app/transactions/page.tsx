@@ -179,6 +179,18 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                       <span className="block truncate" title={t.description}>
                         {t.counterparty ?? t.merchant ?? t.description}
                       </span>
+                      {t.transferPartner && (
+                        <span
+                          className="block truncate text-[11px] text-muted"
+                          title={`Same money as ${t.transferPartner.accountName}: ${t.transferPartner.label}`}
+                        >
+                          ↔{" "}
+                          {t.excludeFromSpending
+                            ? `transfer to/from ${t.transferPartner.accountName}`
+                            : `via ${t.transferPartner.accountName}`}{" "}
+                          · {t.transferPartner.label}
+                        </span>
+                      )}
                       {t.reviewState === "SUGGESTED" && (
                         <span className="block text-[11px] text-muted">
                           AI suggestion, not confirmed

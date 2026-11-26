@@ -31,6 +31,7 @@ CSV characteristics (DOC unless tagged):
 | Embedded newlines | possible inside `Omschrijving` — join field lines before parsing (CODE) |
 | Decimal separator | **`.`**, no thousands separator |
 | Sign | signed single amount column, debit negative |
+| Merchant | the `Naam` column for direct debits, whose narrative starts `Europese incasso: …` and names no shop. Reading the narrative instead made every SEPA debit merchant `EUROPESE INCASSO`, merging PayPal, the phone bill, the insurer and the card collection |
 | Dates | `dd-mm-jjjj`, not zero padded (`25-3-2025`) |
 | Fees | no fee column; fees are their own `AFB` rows |
 | FX | two currency columns per row, **no rate and no original amount column** |

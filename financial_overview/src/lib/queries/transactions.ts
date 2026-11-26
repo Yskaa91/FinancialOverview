@@ -27,7 +27,17 @@ export type TransactionListItem = {
   categoryId: string | null;
   categorySource: string;
   reviewState: string;
+  /** True on the leg of a transfer pair that no longer counts as income or expense. */
+  excludeFromSpending: boolean;
   sameMerchantOpen: number;
+  /** The other account's row, when this one is half of a movement between own accounts. */
+  transferPartner: {
+    id: string;
+    bookedAt: Date;
+    amountCents: number;
+    accountName: string;
+    label: string;
+  } | null;
 };
 
 export async function listTransactions(filters: TransactionFilters) {
@@ -58,7 +68,9 @@ export async function listTransactions(filters: TransactionFilters) {
     categoryId: t.categoryId,
     categorySource: t.categorySource,
     reviewState: t.reviewState,
+    excludeFromSpending: t.excludeFromSpending,
     sameMerchantOpen: 0,
+    transferPartner: null,
   }));
 
   // One extra query, only for rows that can be bulk-applied, so the button can
@@ -79,7 +91,60 @@ export async function listTransactions(filters: TransactionFilters) {
     item.sameMerchantOpen = item.merchant ? (openByMerchant.get(item.merchant) ?? 0) : 0;
   }
 
+  await attachTransferPartners(items);
+
   return { items, count, page, pageCount: Math.max(1, Math.ceil(count / PAGE_SIZE)), sumCents: sums._sum.amountCents ?? 0 };
+}
+
+/**
+ * One extra query per page: which other statement row is the same money. Without
+ * this a PayPal purchase and the bank's direct debit look like two expenses.
+ */
+async function attachTransferPartners(items: TransactionListItem[]): Promise<void> {
+  const ids = items.map((item) => item.id);
+  if (ids.length === 0) return;
+
+  const linked = await prisma.transaction.findMany({
+    where: { id: { in: ids }, transferLinkId: { not: null } },
+    select: { id: true, transferLinkId: true },
+  });
+  const linkByRow = new Map(linked.map((row) => [row.id, row.transferLinkId as string]));
+  const linkIds = [...new Set(linkByRow.values())];
+  if (linkIds.length === 0) return;
+
+  const partners = await prisma.transaction.findMany({
+    where: { transferLinkId: { in: linkIds } },
+    select: {
+      id: true,
+      transferLinkId: true,
+      bookedAt: true,
+      amountCents: true,
+      description: true,
+      merchant: true,
+      counterparty: true,
+      account: { select: { name: true } },
+    },
+  });
+
+  const byLink = new Map<string, typeof partners>();
+  for (const partner of partners) {
+    const key = partner.transferLinkId as string;
+    byLink.set(key, [...(byLink.get(key) ?? []), partner]);
+  }
+
+  for (const item of items) {
+    const linkId = linkByRow.get(item.id);
+    if (!linkId) continue;
+    const other = (byLink.get(linkId) ?? []).find((row) => row.id !== item.id);
+    if (!other) continue;
+    item.transferPartner = {
+      id: other.id,
+      bookedAt: other.bookedAt,
+      amountCents: other.amountCents,
+      accountName: other.account.name,
+      label: other.merchant ?? other.counterparty ?? other.description,
+    };
+  }
 }
 
 function buildWhere(filters: TransactionFilters): Prisma.TransactionWhereInput {

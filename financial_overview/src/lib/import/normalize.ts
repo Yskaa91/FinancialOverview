@@ -30,10 +30,13 @@ const NOISE: RegExp[] = [
   /\bNLNEDERLAND\b/g,
 ];
 
-// Bank and payment-provider wording that names no shop: there the counterparty
-// is the only usable key, and a settlement row gets none at all.
+// Bank and payment-provider wording that names no payer: there the counterparty is
+// the only usable key, and a settlement row gets none at all. ASN prefixes every
+// direct debit with "Europese incasso:", which used to become the merchant
+// "EUROPESE INCASSO" and merged PayPal, the phone bill, the insurer and the card
+// bill into one merchant.
 const TRANSFER_WORDING =
-  /^(SEPA|OVERBOEKING|OVERSCHRIJVING|INCASSO|IDEAL|BETAALVERZOEK|ACCEPTGIRO|TRANSFER|GEA|GEINCASSEERD|PAYMENT|BETALING|WEBSITEBETALING)\b/i;
+  /^(SEPA|EUROPESE|OVERBOEKING|OVERSCHRIJVING|PERIODIEKE|INCASSO|IDEAL|BETAALVERZOEK|ACCEPTGIRO|TRANSFER|GEA|GEINCASSEERD|PAYMENT|BETALING|WEBSITEBETALING|AFSCHRIJVING|STORING|STORTING|OPNAME)\b/i;
 
 export function cleanDescription(raw: string): string {
   let text = raw.replace(/^['"]+|['"]+$/g, "");

@@ -6,5 +6,11 @@ import type { Prisma } from "@prisma/client";
  * or balancing. Rows with no category yet still count.
  */
 export const notTransfer: Prisma.TransactionWhereInput = {
-  OR: [{ categoryId: null }, { category: { kind: { not: "TRANSFER" } } }],
+  AND: [
+    { OR: [{ categoryId: null }, { category: { kind: { not: "TRANSFER" } } }] },
+    // The other half of a movement between own accounts. A category cannot express
+    // this: one leg keeps counting and the other must not, and a MANUAL category on
+    // the excluded leg must not bring the double count back.
+    { excludeFromSpending: false },
+  ],
 };

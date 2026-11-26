@@ -79,22 +79,44 @@ model Transaction {
   categoryConfidence Int?
   // OK | SUGGESTED | UNCATEGORIZED
   reviewState        String @default("UNCATEGORIZED")
-  transferGroupId    String?
+  // Set on the leg of a movement between own accounts that must not be counted as
+  // income or expense. The pair itself lives in TransferLink.
+  excludeFromSpending Boolean @default(false)
+  transferLinkId      String?
   balanceAfterCents  Int?
   rawJson            String
   // accountId|date|amount|currency|merchant|occurrence: makes imports idempotent
   dedupeHash         String @unique
 
-  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  statement Statement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
-  category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  statement    Statement?    @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transferLink TransferLink? @relation(fields: [transferLinkId], references: [id], onDelete: SetNull)
 
   @@index([bookedAt])
   @@index([accountId, bookedAt])
   @@index([categoryId, bookedAt])
   @@index([reviewState])
   @@index([merchant])
-  @@index([transferGroupId])
+  @@index([transferLinkId])
+  @@index([excludeFromSpending])
+}
+
+// Two transactions that are the same money seen from two accounts: the PayPal
+// purchase and the ASN direct debit that funded it, the card bill and its
+// collection. Both rows stay; this is what makes them one event.
+model TransferLink {
+  id String @id @default(cuid())
+  // FUNDING (bank pays for a wallet's spend) | SETTLEMENT (opposite signs) |
+  // OWN_ACCOUNT (bank to bank). String, validated by Zod, like every other enum.
+  kind     String
+  // AUTO | MANUAL
+  method   String   @default("AUTO")
+  createdAt DateTime @default(now())
+
+  transactions Transaction[]
+
+  @@index([kind, createdAt])
 }
 
 model Category {
