@@ -40,7 +40,7 @@ export function detectSource(filename: string, text: string): StatementSource | 
   // row alone: "Bruto" also appears in the free text of an ASN narrative.
   if (
     /\b(date|datum)\b/i.test(firstLine) &&
-    /\b(net|netto|bruto|gross)\b/i.test(firstLine) &&
+    /\b(net|netto|bruto|gross|total|amount|bedrag)\b/i.test(firstLine) &&
     /\b(status|tijd|time)\b/i.test(firstLine)
   ) {
     return "PAYPAL";

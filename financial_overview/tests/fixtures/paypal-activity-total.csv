@@ -1,0 +1,7 @@
+"Date","Time","TimeZone","Name","Type","Status","Currency","Amount","Fees","Total","Exchange Rate","Receipt ID","Balance","Transaction ID","Item Title"
+"03/10/2026","10:18:09","GMT+02:00","Streamstore BV","PreApproved Payment Bill User Payment","Completed","EUR","-18.00","0.00","-18.00","","","-18.00","8U000000000000001",""
+"03/10/2026","10:18:09","GMT+02:00","","Bank Deposit to PP Account ","Pending","EUR","18.00","0.00","18.00","","","0.00","1HV00000000000002",""
+"05/10/2026","14:34:38","GMT+02:00","Servicecenter Example","Express Checkout Payment","Completed","EUR","-93.79","0.00","-93.79","","","-93.79","3YT00000000000003",""
+"07/10/2026","22:33:11","GMT+02:00","Streamstore BV","Payment Refund","Completed","EUR","5.85","0.00","5.85","","","5.85","4LR00000000000004","Refund for order 4421"
+"07/10/2026","22:33:11","GMT+02:00","","User Initiated Withdrawal","Processing","EUR","-5.85","0.00","-5.85","","","0.00","9QZ00000000000005",""
+"23/10/2026","16:16:44","GMT+02:00","Somnia Hosting s.r.l","Express Checkout Payment","Completed","EUR","-100.00","-3.50","-103.50","","","-103.50","5XK00000000000006",""

@@ -14,7 +14,9 @@ const COLUMNS = {
   type: ["type"],
   status: ["status"],
   currency: ["currency", "valuta"],
-  net: ["net", "netto"],
+  // Newer Activity Downloads drop Gross/Net and ship Amount/Fees/Total, where
+  // Total is the net cash effect. Later aliases are fallbacks, not equals.
+  net: ["net", "netto", "total"],
   itemTitle: ["item title", "artikel titel", "itemtitel"],
   balance: ["balance", "saldo"],
 } as const;
@@ -99,11 +101,18 @@ export function parsePaypal(text: string): ParseResult {
 
 function mapColumns(fields: string[]): ColumnMap {
   const map: ColumnMap = {};
+  const rank: ColumnMap = {};
   fields.forEach((field, at) => {
     const name = field.trim().toLowerCase().replace(/\s+/g, " ");
     for (const key of Object.keys(COLUMNS) as Column[]) {
-      if (map[key] === undefined && (COLUMNS[key] as readonly string[]).includes(name)) {
+      const aliases = COLUMNS[key] as readonly string[];
+      const aliasAt = aliases.indexOf(name);
+      if (aliasAt === -1) continue;
+      // Prefer the alias listed first, not the column that comes first in the
+      // file: a header carrying both Net and Total must still read Net.
+      if (rank[key] === undefined || aliasAt < rank[key]!) {
         map[key] = at;
+        rank[key] = aliasAt;
       }
     }
   });

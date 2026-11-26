@@ -111,3 +111,47 @@ describe("PayPal header handling", () => {
     expect(() => parseStatement("PAYPAL", "Foo,Bar\n1,2")).toThrow(/Foo \| Bar/);
   });
 });
+
+// PayPal's newer Activity Download: Amount/Fees/Total instead of Gross/Fee/Net,
+// a quirk-free English header, and a filename that says nothing at all.
+describe("PayPal Activity Download with Amount/Fees/Total", () => {
+  const text = fixtureText("paypal-activity-total.csv");
+  const result = parseStatement("PAYPAL", text);
+
+  it("is detected from the header alone, without a telling filename", () => {
+    expect(detectSource("Download.CSV", text)).toBe("PAYPAL");
+  });
+
+  it("imports the final rows and reports the pending deposit", () => {
+    expect(result.rows).toHaveLength(5);
+    expect(result.rejected).toEqual([{ line: 3, reason: 'non-final status "Pending"' }]);
+  });
+
+  it("takes Total as the cash effect, so fees are included", () => {
+    expect(result.rows.map((row) => row.amountCents)).toEqual([
+      -1800, -9379, 585, -585, -10350,
+    ]);
+    const raw = JSON.parse(result.rows[4].rawJson);
+    expect(raw.Amount).toBe("-100.00");
+    expect(raw.Fees).toBe("-3.50");
+    expect(raw.Total).toBe("-103.50");
+  });
+
+  it("keeps a withdrawal that is still processing", () => {
+    expect(result.rows[3].description).toBe("User Initiated Withdrawal");
+  });
+
+  it("defaults to DD/MM/YYYY when nothing in the file proves otherwise", () => {
+    expect(result.rows[0].bookedAt.toISOString()).toBe("2026-10-03T00:00:00.000Z");
+    expect(result.rows[4].bookedAt.toISOString()).toBe("2026-10-23T00:00:00.000Z");
+  });
+});
+
+describe("PayPal column preference", () => {
+  it("reads Net rather than Total when a header carries both", () => {
+    const text =
+      "Date,Time,TimeZone,Name,Type,Status,Currency,Amount,Net,Total\n" +
+      "01/04/2025,10:00:00,CET,Shop,Payment,Completed,EUR,-1.00,-2.00,-3.00";
+    expect(parseStatement("PAYPAL", text).rows[0].amountCents).toBe(-200);
+  });
+});

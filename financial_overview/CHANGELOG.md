@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **PayPal files that say `Amount`/`Fees`/`Total` now import.** PayPal swapped
+  `Gross`/`Fee`/`Net` for `Amount`/`Fees`/`Total` in the Activity Download, and
+  the parser only knew the old names, so the whole file was rejected with "no
+  recognisable header row". `Total` is the cash effect including the fee, and is
+  used as the fallback for `Net`; a header carrying both still reads `Net`.
+  Detection no longer depends on the filename: a plain `Download.csv` is
+  recognised from its header.
+- **A proposed rule keeps the category you picked** in the import review
+  dialog instead of the AI's original suggestion.
+
 ## 0.6.3
 
 - **0.6.2 could not be built at all.** Dropping the compiler from the image

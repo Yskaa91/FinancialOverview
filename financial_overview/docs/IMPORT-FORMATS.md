@@ -86,9 +86,17 @@ Safe anchors across eras: `Date`, `Time`, `TimeZone`, `Name`, `Currency`,
 `Gross`, `Fee`, `Net`, `From Email Address`, `To Email Address`,
 `Transaction ID`, `Reference Txn ID`, `Receipt ID`, `Balance` (DOC).
 
+A second English header shape is in the wild (seen 2026-11): `Amount`, `Fees`,
+`Total` in place of `Gross`, `Fee`, `Net`, plus `Exchange Rate`, `Item Title` and
+no email columns. `Total` is the net cash effect (`Amount + Fees`), so it is the
+fallback for `Net`; `Amount` alone silently drops the fee. When a header carries
+both, `Net` wins — the parser ranks aliases, not column positions. Such a file is
+usually named `Download.csv`, so detection must come from the header alone.
+
 | Property | Value |
 |---|---|
 | Sign | signed `Gross`/`Fee`/`Net`; refunds invert; a refund's `Fee` is `0.00` |
+| Cash effect | `Net` when present, else `Total` (`Amount + Fees`) |
 | Decimals | "localized": US `.` with quoted thousands, NL reports of `,` (DOC/COMM) |
 | Dates | `Date` + `Time` + `TimeZone` in three columns; US `MM/DD/YYYY`, NL `DD/MM/YYYY` |
 | IBAN | **none** — identity is the email columns |
