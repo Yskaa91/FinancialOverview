@@ -101,6 +101,7 @@ usually named `Download.csv`, so detection must come from the header alone.
 | Dates | `Date` + `Time` + `TimeZone` in three columns; US `MM/DD/YYYY`, NL `DD/MM/YYYY` |
 | IBAN | **none** — identity is the email columns |
 | Statuses | `Status` includes `Pending`, `Temporary Hold`, `Reversed`, `Refunded` — filter before counting |
+| Merchant | the `Name` column, else the `Item Title`. **Never** `Type`: "Express Checkout Payment" is a payment method, and treating it as a merchant merges every shop that used it into one review group |
 | Splits | >50 000 rows → ZIP where only the first part carries the header |
 
 Parser plan: detect header language (EN/NL at minimum), build a column map by

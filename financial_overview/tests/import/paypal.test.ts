@@ -155,3 +155,44 @@ describe("PayPal column preference", () => {
     expect(parseStatement("PAYPAL", text).rows[0].amountCents).toBe(-200);
   });
 });
+
+// PayPal's "Type" is how the money moved, not who received it. Taking its first
+// words as the merchant merged every shop that used that method into one review
+// group named after whichever row came first.
+describe("PayPal merchant identity", () => {
+  const header =
+    "Date,Time,TimeZone,Name,Type,Status,Currency,Amount,Fees,Total,Transaction ID,Item Title\n";
+
+  it("takes the other party, not the payment method", () => {
+    const text =
+      header +
+      '05/10/2026,14:34:38,GMT+02:00,Servicecenter Windhorn,Express Checkout Payment,Completed,EUR,-93.79,0.00,-93.79,T1,""\n' +
+      '10/10/2026,22:59:01,GMT+02:00,K4G LTD,Express Checkout Payment,Completed,EUR,-4.72,0.00,-4.72,T2,""\n' +
+      '11/10/2026,17:43:48,GMT+02:00,Valve Corporation,Express Checkout Payment,Completed,EUR,-8.99,0.00,-8.99,T3,""';
+    expect(parseStatement("PAYPAL", text).rows.map((row) => row.merchant)).toEqual([
+      "SERVICECENTER WINDHORN",
+      "K4G LTD",
+      "VALVE CORPORATION",
+    ]);
+  });
+
+  it("prefers the item title when there is one", () => {
+    const text =
+      header +
+      '05/10/2026,14:34:38,GMT+02:00,Some Shop,Shopping Cart Payment,Completed,EUR,-9.00,0.00,-9.00,T4,Steam Games';
+    const row = parseStatement("PAYPAL", text).rows[0];
+    expect(row.merchant).toBe("STEAM GAMES");
+    expect(row.description).toBe("Steam Games");
+  });
+
+  it("invents no merchant when PayPal names nobody", () => {
+    // The review group then keys off the description instead; a merchant guessed
+    // from "User Initiated Withdrawal" would be a rule nobody meant to write.
+    const text =
+      header +
+      '07/10/2026,22:33:11,GMT+02:00,,User Initiated Withdrawal,Processing,EUR,-5.85,0.00,-5.85,T5,""';
+    const row = parseStatement("PAYPAL", text).rows[0];
+    expect(row.merchant).toBeNull();
+    expect(row.description).toBe("User Initiated Withdrawal");
+  });
+});

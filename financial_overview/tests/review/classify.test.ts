@@ -64,6 +64,23 @@ describe("groupRows", () => {
     expect(lidl.label).toBe("LIDL");
   });
 
+  it("keeps shops apart when they share a payment method", () => {
+    // PayPal's type column names a payment method, not a shop: three rows with
+    // the same type and different other parties must not become one group.
+    const groups = groupRows([
+      { bookedAt: "2026-10-05", amountCents: -9379, description: "Express Checkout Payment", merchant: "SERVICECENTER WINDHORN" },
+      { bookedAt: "2026-10-10", amountCents: -472, description: "Express Checkout Payment", merchant: "K4G LTD" },
+      { bookedAt: "2026-10-23", amountCents: -89900, description: "Express Checkout Payment", merchant: "SOMNIA TECHNOLOGIES S.R.L" },
+    ]);
+
+    expect(groups.map((group) => group.key)).toEqual([
+      "SERVICECENTER WINDHORN",
+      "K G LTD",
+      "SOMNIA TECHNOLOGIES S R L",
+    ]);
+    expect(groups.map((group) => group.rows.length)).toEqual([1, 1, 1]);
+  });
+
   it("orders a group's rows newest first, whatever order the file had", () => {
     const groups = groupRows([
       { bookedAt: "2026-01-05", amountCents: -1000, description: "NETFLIX", merchant: "NETFLIX" },

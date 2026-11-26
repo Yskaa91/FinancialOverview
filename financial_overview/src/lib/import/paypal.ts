@@ -76,10 +76,9 @@ export function parsePaypal(text: string): ParseResult {
     }
 
     const counterparty = emptyToNull(cell(fields, map.name));
+    const itemTitle = cell(fields, map.itemTitle).trim();
     // The item title is the human text; a plain payment only has its type.
-    const description = cleanDescription(
-      cell(fields, map.itemTitle).trim() || cell(fields, map.type).trim(),
-    );
+    const description = cleanDescription(itemTitle || cell(fields, map.type).trim());
 
     rows.push({
       bookedAt,
@@ -89,7 +88,11 @@ export function parsePaypal(text: string): ParseResult {
       counterparty,
       // PayPal has no IBAN; identity is the email columns, kept in rawJson.
       counterpartyIban: null,
-      merchant: extractMerchant(description, counterparty),
+      // Never the type: "Express Checkout Payment" is a payment method, and taking
+      // its first words as the merchant lumped every shop that used that method
+      // into one review group named after whichever row came first. The other
+      // party is the merchant, the item title when PayPal supplies one.
+      merchant: extractMerchant(itemTitle, counterparty),
       balanceAfterCents:
         map.balance === undefined ? null : parseAmountToCents(cell(fields, map.balance)),
       rawJson: JSON.stringify(rawRecord(header, record)),

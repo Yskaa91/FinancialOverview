@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **PayPal rows no longer collapse into one merchant.** The parser took the first
+  two words of the `Type` column as the merchant, so every shop paid through
+  "Express Checkout Payment" became a single review group, labelled after whichever
+  row came first and totalling unrelated purchases. The other party (`Name`, else
+  `Item Title`) is the merchant now; the type stays the description. A statement
+  with five different shops shows five groups.
 - **ICS statement PDFs import.** ICS only offers CSV for transaction exports, and
   a cards-only account gets nothing but the monthly PDF. The import page now
   accepts it: the PDF is read as text, one line per printed row, and the rows are
