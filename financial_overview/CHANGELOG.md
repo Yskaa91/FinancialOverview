@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1
+
+- **The net-worth chart includes the house again.** The headline figure on the
+  dashboard counted real estate, the twelve-month chart under it did not, so the
+  two disagreed by the value of the home. The chart now adds the homes too.
+- **Estimates get a history.** The value of a home comes from a CBS or Eurostat
+  index series fetched over the network, so it cannot be recomputed for a month
+  that has passed. Each refresh now stores a dated `PropertyValuation` row
+  (one per day at most), and the chart reads the newest estimate at or before each
+  month end: the price paid stands in between the purchase and the first stored
+  estimate, and a month before the purchase counts for nothing. Homes therefore
+  gain a real history from their first refresh onward instead of a flat line.
+
 ## 0.7.0
 
 - **The dashboard looks back, and compares.** Income, expenses, the net result

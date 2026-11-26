@@ -52,3 +52,25 @@ export function estimateValueCents(
   if (indexAtPurchaseMicro <= 0) return null;
   return Math.round((purchasePriceCents * indexLatestMicro) / indexAtPurchaseMicro);
 }
+
+export type ValuationPoint = { valuedAt: Date; cents: number };
+
+/**
+ * What one home was worth at `date`. Nothing before it was bought; between the
+ * purchase and the first stored estimate the price paid stands in, because that
+ * is the only figure that is known rather than guessed.
+ */
+export function valueAtDate(
+  property: { purchasedAt: Date; purchasePriceCents: number },
+  valuations: ValuationPoint[],
+  date: Date,
+): number {
+  if (date < property.purchasedAt) return 0;
+
+  let best: ValuationPoint | null = null;
+  for (const point of valuations) {
+    if (point.valuedAt > date) continue;
+    if (!best || point.valuedAt > best.valuedAt) best = point;
+  }
+  return best?.cents ?? property.purchasePriceCents;
+}

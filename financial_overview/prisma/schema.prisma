@@ -234,8 +234,24 @@ model Property {
   valueFetchedAt       DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+  valuations           PropertyValuation[]
 
   @@index([regionCode])
+}
+
+// One dated estimate per day at most. The net-worth series needs to know what a
+// home was worth at a past month end, and the index series that produces the
+// estimate lives on the network, not in the database, so the answers are kept.
+model PropertyValuation {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  valuedAt   DateTime
+  cents      Int
+  createdAt  DateTime @default(now())
+
+  @@unique([propertyId, valuedAt])
+  @@index([propertyId, valuedAt])
 }
 
 model Price {

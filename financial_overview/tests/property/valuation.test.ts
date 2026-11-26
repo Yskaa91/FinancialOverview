@@ -7,6 +7,7 @@ import {
   latestPoint,
   quarterCode,
   toIndexMicro,
+  valueAtDate,
   type IndexPoint,
 } from "@/lib/property/valuation";
 
@@ -77,5 +78,33 @@ describe("estimateValueCents", () => {
     expect(toIndexMicro(133.5)).toBe(133_500_000);
     expect(Number.isInteger(toIndexMicro(133.5))).toBe(true);
     expect(INDEX_SCALE_1E6).toBe(1_000_000);
+  });
+});
+
+describe("valueAtDate", () => {
+  const home = { purchasedAt: new Date("2020-06-01T00:00:00.000Z"), purchasePriceCents: 40_000_000 };
+  const valuations = [
+    { valuedAt: new Date("2026-06-01T00:00:00.000Z"), cents: 50_000_000 },
+    { valuedAt: new Date("2026-10-01T00:00:00.000Z"), cents: 52_000_000 },
+  ];
+
+  it("counts for nothing before the home was bought", () => {
+    expect(valueAtDate(home, valuations, new Date("2020-05-31T00:00:00.000Z"))).toBe(0);
+  });
+
+  it("stands on the price paid until an estimate exists", () => {
+    expect(valueAtDate(home, [], new Date("2024-01-01T00:00:00.000Z"))).toBe(40_000_000);
+    expect(valueAtDate(home, valuations, new Date("2025-01-01T00:00:00.000Z"))).toBe(40_000_000);
+  });
+
+  it("takes the newest estimate at or before the date", () => {
+    expect(valueAtDate(home, valuations, new Date("2026-06-01T00:00:00.000Z"))).toBe(50_000_000);
+    expect(valueAtDate(home, valuations, new Date("2026-09-30T00:00:00.000Z"))).toBe(50_000_000);
+    expect(valueAtDate(home, valuations, new Date("2026-12-31T00:00:00.000Z"))).toBe(52_000_000);
+  });
+
+  it("does not care about the order the estimates arrive in", () => {
+    const shuffled = [valuations[1], valuations[0]];
+    expect(valueAtDate(home, shuffled, new Date("2026-06-30T00:00:00.000Z"))).toBe(50_000_000);
   });
 });

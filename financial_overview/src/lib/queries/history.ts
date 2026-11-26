@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notTransfer } from "./filters";
+import { propertySeriesCents } from "./property";
 import { fifo, positionValueCents, type TradeInput } from "@/lib/portfolio/trades";
 
 export type NetWorthPoint = { date: string; cents: number };
@@ -113,17 +114,22 @@ async function loadBalanceInputs(before: Date, inclusive: boolean) {
   return { accounts, transactions, trades, prices };
 }
 
-/** Net worth per month end, houses excluded (they are valued separately). */
+/**
+ * Net worth per month end: the accounts from `balancesAtDate`, plus the homes as
+ * they were valued at that date — the same real estate the headline figure on the
+ * dashboard carries.
+ */
 export async function netWorthSeries(months = 12): Promise<NetWorthPoint[]> {
   const ends = monthEnds(months);
-  const { accounts, transactions, trades, prices } = await loadBalanceInputs(
-    ends[ends.length - 1],
-    true,
-  );
+  const [{ accounts, transactions, trades, prices }, propertyCents] = await Promise.all([
+    loadBalanceInputs(ends[ends.length - 1], true),
+    propertySeriesCents(ends),
+  ]);
 
-  return ends.map((end) => {
+  return ends.map((end, index) => {
     const balances = balancesAtDate(accounts, transactions, trades, prices, end);
-    const cents = [...balances.values()].reduce((sum, value) => sum + value, 0);
+    const cents =
+      [...balances.values()].reduce((sum, value) => sum + value, 0) + propertyCents[index];
     return { date: end.toISOString().slice(0, 10), cents };
   });
 }

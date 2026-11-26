@@ -196,6 +196,8 @@ Property       id, label?, address, country(NL, DE, …), regionCode(CBS RegioS
                estimatedValueCents?, indexAtPurchaseMicro?, indexLatestMicro?,
                indexPeriod?, valueFetchedAt?
                -- value follows the regional index; never typed in
+PropertyValuation  id, propertyId, valuedAt, cents
+               -- one dated estimate per day; the net-worth history reads it
 Price          id, instrumentId, fetchedAt, priceCents, source(MANUAL|STOOQ|YAHOO)
 Snapshot       id, accountId, takenAt, balanceCents, source(IMPORT|MANUAL)
 TransferLink   id, kind(FUNDING|SETTLEMENT|OWN_ACCOUNT), method(AUTO|MANUAL), createdAt
@@ -488,9 +490,14 @@ visible before anything is written, and the footer count follows the decisions.
   same number feeds the account cards and `getDashboard().netWorthCents`, via
   `holdingsValueByAccount()` — one FIFO pass over every broker's trades, priced
   with the newest `Price` row and falling back to the average cost.
-- Net worth history: bank and savings accounts derive a balance per day from
-  transactions; broker and manual accounts use `Snapshot` rows, forward-filled.
-  The dashboard draws the merged series.
+- Net worth history: an account's balance on a date is its opening balance plus
+  the movements up to that date; a broker adds FIFO holdings priced with the
+  newest quote known then (`balancesAtDate`, shared by the chart and the
+  per-period table on `/`). The homes come from `PropertyValuation`: one dated
+  estimate per day, written whenever the property refresh runs, because the index
+  series behind it lives on the network and cannot be re-derived later. A date
+  before the first estimate uses the price paid; before the purchase, nothing. The
+  chart therefore carries the same real estate as the headline net worth.
 
 ## 8. Pages
 
@@ -703,8 +710,10 @@ plus CAMT.053.
   live-rate estimate flagged in `rawJson`.
 - **`Int` cents.** Safe per row (€21M); aggregates are summed in JS `number`,
   safe to €90 trillion. Do not move to `BigInt` without measuring.
-- **No price history.** Valuation uses the latest price only; the dashboard's
-  portfolio history is therefore approximate until `Price` rows accumulate.
+- **Prices are only as good as the rows.** Valuation uses the newest `Price` row
+  at or before the date; holdings history is therefore approximate until those
+  rows accumulate. Homes keep their own dated estimates in `PropertyValuation`, so
+  a property only gains a real history from the first refresh onward.
 - **Parsers drift.** Export formats change without notice. Each parser throws a
   typed error with the offending header list, so the fix is one file and one
   fixture.

@@ -7,7 +7,9 @@ import {
   indexAtPeriod,
   latestPoint,
   quarterCode,
+  valueAtDate,
   type IndexPoint,
+  type ValuationPoint,
 } from "@/lib/property/valuation";
 import { priceFetchEnabled, } from "@/lib/portfolio/quotes";
 
@@ -90,20 +92,33 @@ export async function refreshPropertyValues(options: { force?: boolean } = {}): 
     const latest = latestPoint(series);
     if (!latest) continue;
 
+    const estimatedValueCents = estimateValueCents(
+      property.purchasePriceCents,
+      atPurchase?.indexMicro ?? null,
+      latest.indexMicro,
+    );
+
     await prisma.property.update({
       where: { id: property.id },
       data: {
         indexAtPurchaseMicro: atPurchase?.indexMicro ?? null,
         indexLatestMicro: latest.indexMicro,
         indexPeriod: latest.period,
-        estimatedValueCents: estimateValueCents(
-          property.purchasePriceCents,
-          atPurchase?.indexMicro ?? null,
-          latest.indexMicro,
-        ),
+        estimatedValueCents,
         valueFetchedAt: new Date(),
       },
     });
+
+    // Keep the answer: the net-worth series asks what the home was worth at a
+    // past month end, and the index series behind this number is not stored.
+    if (estimatedValueCents !== null) {
+      const valuedAt = startOfUtcDay(new Date());
+      await prisma.propertyValuation.upsert({
+        where: { propertyId_valuedAt: { propertyId: property.id, valuedAt } },
+        create: { propertyId: property.id, valuedAt, cents: estimatedValueCents },
+        update: { cents: estimatedValueCents },
+      });
+    }
     updated += 1;
   }
   return updated;
@@ -117,5 +132,38 @@ export async function propertyTotalCents(): Promise<number> {
   return properties.reduce(
     (sum, property) => sum + (property.estimatedValueCents ?? property.purchasePriceCents),
     0,
+  );
+}
+
+const startOfUtcDay = (date: Date) =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
+/**
+ * What the homes add to net worth at each of `dates`, so the net-worth chart
+ * carries the same real estate the headline figure does.
+ */
+export async function propertySeriesCents(dates: Date[]): Promise<number[]> {
+  if (dates.length === 0) return [];
+
+  const properties = await prisma.property.findMany({
+    select: {
+      purchasedAt: true,
+      purchasePriceCents: true,
+      estimatedValueCents: true,
+      valueFetchedAt: true,
+      valuations: { select: { valuedAt: true, cents: true }, orderBy: { valuedAt: "asc" } },
+    },
+  });
+  if (properties.length === 0) return dates.map(() => 0);
+
+  return dates.map((date) =>
+    properties.reduce((sum, property) => {
+      const points: ValuationPoint[] = [...property.valuations];
+      // A home refreshed before this table existed still has its newest estimate.
+      if (property.estimatedValueCents !== null && property.valueFetchedAt !== null) {
+        points.push({ valuedAt: property.valueFetchedAt, cents: property.estimatedValueCents });
+      }
+      return sum + valueAtDate(property, points, date);
+    }, 0),
   );
 }
