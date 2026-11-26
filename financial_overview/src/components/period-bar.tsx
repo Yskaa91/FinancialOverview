@@ -1,8 +1,8 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { MonthPicker } from "./period-month-picker";
 import {
   isFuture,
-  periodOf,
   previousPeriod,
   shiftPeriod,
   withKind,
@@ -10,68 +10,44 @@ import {
   type Period,
 } from "@/lib/periods";
 
-export type CompareMode = "off" | "prev" | "year";
-
 const KINDS: { kind: Granularity; label: string }[] = [
   { kind: "month", label: "Month" },
   { kind: "quarter", label: "Quarter" },
   { kind: "year", label: "Year" },
 ];
 
-const COMPARISONS: { mode: CompareMode; label: string; title: string }[] = [
-  { mode: "prev", label: "Previous", title: "The period right before this one" },
-  { mode: "year", label: "Year earlier", title: "The same period one year ago" },
-  { mode: "off", label: "Off", title: "Show this period on its own" },
-];
-
 const PILL = "rounded-md border px-2.5 py-1.5";
 const IDLE = "border-border text-muted hover:bg-surface-muted";
 const ACTIVE = "border-accent bg-accent/10 font-medium text-foreground";
+const DISABLED = "border-border/60 text-muted/40";
 
 /**
- * Period navigation is plain links: the URL carries the period and the
- * comparison, so every view is bookmarkable and the back button walks back
+ * Period navigation is plain links: the URL carries the period and what it is
+ * compared with, so every view is bookmarkable and the back button walks back
  * through the months the user actually looked at.
  */
-export function PeriodBar({ period, compare }: { period: Period; compare: CompareMode }) {
-  const href = (p: Period, c: CompareMode = compare) => `/?p=${p.key}&c=${c}`;
-  const previous = previousPeriod(period);
-  const next = shiftPeriod(period, 1);
+export function PeriodBar({ period, compare }: { period: Period; compare: Period | null }) {
+  const href = (p: Period, c: string | Period | null = compare) =>
+    `/?p=${p.key}&c=${c === null ? "off" : typeof c === "string" ? c : c.key}`;
   const now = new Date();
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-      <nav aria-label="Period" className="flex items-center gap-1">
-        <Link
-          href={href(previous)}
-          className={`${PILL} ${IDLE}`}
-          aria-label={`Previous period: ${previous.label}`}
-          title={previous.label}
-        >
-          ←
-        </Link>
-        {/* Month view: the label is the picker. Longer periods keep a plain
-            label, because a month input cannot say "Q4" or "2026". */}
-        {period.kind === "month" ? (
-          <MonthPicker value={period.key} compare={compare} />
-        ) : (
-          <span className="min-w-[9.5rem] text-center font-medium">{period.label}</span>
+      <PeriodStepper
+        period={period}
+        isCompared={false}
+        previousHref={href(previousPeriod(period))}
+        nextHref={href(shiftPeriod(period, 1))}
+        canStepForward={!isFuture(shiftPeriod(period, 1), now)}
+        picker={(value) => (
+          <MonthPicker
+            value={value}
+            field="p"
+            other={compare === null ? "off" : compare.key}
+            label="Jump to month"
+          />
         )}
-        {isFuture(next, now) ? (
-          <span className={`${PILL} border-border/60 text-muted/40`} aria-hidden>
-            →
-          </span>
-        ) : (
-          <Link
-            href={href(next)}
-            className={`${PILL} ${IDLE}`}
-            aria-label={`Next period: ${next.label}`}
-            title={next.label}
-          >
-            →
-          </Link>
-        )}
-      </nav>
+      />
 
       <div className="flex items-center gap-1" role="group" aria-label="Period length">
         {KINDS.map(({ kind, label }) => (
@@ -86,27 +62,94 @@ export function PeriodBar({ period, compare }: { period: Period; compare: Compar
         ))}
       </div>
 
-      <div className="flex items-center gap-1" role="group" aria-label="Compare with">
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Compare with">
         <span className="text-xs text-muted">Compare:</span>
-        {COMPARISONS.map(({ mode, label, title }) => (
-          <Link
-            key={mode}
-            href={href(period, mode)}
-            title={title}
-            aria-current={compare === mode ? "true" : undefined}
-            className={`${PILL} ${compare === mode ? ACTIVE : IDLE}`}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
-
-      {/* Only worth a click when the user has actually walked away. */}
-      {period.key === periodOf("month", now).key ? null : (
-        <Link href="/" className="text-xs text-muted underline">
-          Back to this month
+        <Link
+          href={href(period, compare ? "off" : previousPeriod(period))}
+          aria-label={compare ? "Turn the comparison off" : "Turn the comparison on"}
+          title={compare ? "Hide the comparison" : "Compare with another period"}
+          className={`${PILL} ${compare ? ACTIVE : IDLE}`}
+        >
+          {compare ? "On" : "Off"}
         </Link>
-      )}
+        {compare && (
+          <PeriodStepper
+            period={compare}
+            isCompared
+            previousHref={href(period, shiftPeriod(compare, -1))}
+            nextHref={href(period, shiftPeriod(compare, 1))}
+            canStepForward={shiftPeriod(compare, 1).start < period.start}
+            picker={(value) => (
+              <MonthPicker
+                value={value}
+                field="c"
+                other={period.key}
+                label="Compare with month"
+              />
+            )}
+          />
+        )}
+      </div>
     </div>
+  );
+}
+
+/**
+ * `← [period] →` for one of the two periods. The label is a month picker;
+ * quarters and years keep a plain label, because a month input cannot say
+ * "Q4 2026".
+ */
+function PeriodStepper({
+  period,
+  isCompared,
+  previousHref,
+  nextHref,
+  canStepForward,
+  picker,
+}: {
+  period: Period;
+  isCompared: boolean;
+  previousHref: string;
+  nextHref: string;
+  canStepForward: boolean;
+  picker: (value: string) => ReactNode;
+}) {
+  const previous = previousPeriod(period);
+  const next = shiftPeriod(period, 1);
+  const arrowLabel = (target: Period, direction: "Previous" | "Next") =>
+    isCompared
+      ? `${direction} period to compare with: ${target.label}`
+      : `${direction} period: ${target.label}`;
+
+  return (
+    <nav aria-label={isCompared ? "Compared period" : "Period"} className="flex items-center gap-1">
+      <Link
+        href={previousHref}
+        className={`${PILL} ${IDLE}`}
+        aria-label={arrowLabel(previous, "Previous")}
+        title={previous.label}
+      >
+        ←
+      </Link>
+      {period.kind === "month" ? (
+        picker(period.key)
+      ) : (
+        <span className="min-w-[9.5rem] text-center font-medium">{period.label}</span>
+      )}
+      {canStepForward ? (
+        <Link
+          href={nextHref}
+          className={`${PILL} ${IDLE}`}
+          aria-label={arrowLabel(next, "Next")}
+          title={next.label}
+        >
+          →
+        </Link>
+      ) : (
+        <span className={`${PILL} ${DISABLED}`} aria-hidden>
+          →
+        </span>
+      )}
+    </nav>
   );
 }

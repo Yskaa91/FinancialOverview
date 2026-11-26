@@ -7,14 +7,9 @@ import { cashflowSeries, netWorthSeries } from "@/lib/queries/history";
 import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { CashflowBars } from "@/components/charts/cashflow-bars";
 import { CategoryPie } from "@/components/charts/category-pie";
-import { PeriodBar, type CompareMode } from "@/components/period-bar";
+import { PeriodBar } from "@/components/period-bar";
 import { CompareTable } from "@/components/compare-table";
-import {
-  formatChangePercent,
-  parsePeriod,
-  previousPeriod,
-  yearAgoPeriod,
-} from "@/lib/periods";
+import { comparePeriod, formatChangePercent, parsePeriod } from "@/lib/periods";
 import { requireSession } from "@/lib/auth";
 
 // Reads the database on every request; nothing here is safe to prerender.
@@ -40,10 +35,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const period = parsePeriod(first(sp.p));
-  const mode: CompareMode =
-    first(sp.c) === "off" ? "off" : first(sp.c) === "year" ? "year" : "prev";
-  const compareWith =
-    mode === "off" ? null : mode === "year" ? yearAgoPeriod(period) : previousPeriod(period);
+  const compareWith = comparePeriod(first(sp.c), period);
 
   const [data, netWorth, cashflow] = await Promise.all([
     getDashboard(period, compareWith),
@@ -75,7 +67,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         </div>
       )}
 
-      <PeriodBar period={period} compare={mode} />
+      <PeriodBar period={period} compare={compareWith} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -136,13 +128,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
               : "Compare periods"
           }
           className="lg:col-span-2"
-          action={
-            comparison ? (
-              <Link href={`/?p=${period.key}&c=off`} className="text-xs text-muted underline">
-                hide
-              </Link>
-            ) : undefined
-          }
         >
           {comparison ? (
             <CompareTable
@@ -152,9 +137,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             />
           ) : (
             <p className="text-sm text-muted">
-              Comparison is off. Pick <span className="font-medium">Previous</span> or{" "}
-              <span className="font-medium">Year earlier</span> above to see what changed
-              between two periods.
+              Comparison is off. Switch <span className="font-medium">Compare</span> on above
+              to see what changed between two periods.
             </p>
           )}
         </Card>

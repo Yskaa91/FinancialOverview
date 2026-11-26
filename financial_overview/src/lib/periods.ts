@@ -76,11 +76,8 @@ export function periodOf(kind: Granularity, ref: Date = new Date()): Period {
   return build("month", ref.getUTCFullYear(), ref.getUTCMonth());
 }
 
-/**
- * Parses `?p=`. Anything unrecognised falls back to the current month rather
- * than throwing: a hand-edited URL should not blank the dashboard.
- */
-export function parsePeriod(raw?: string | string[] | null, now: Date = new Date()): Period {
+/** A period key, or null when the text is not one. */
+export function tryParsePeriod(raw?: string | string[] | null): Period | null {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const text = (value ?? "").trim();
 
@@ -96,7 +93,34 @@ export function parsePeriod(raw?: string | string[] | null, now: Date = new Date
   const year = /^(\d{4})$/.exec(text);
   if (year) return build("year", Number(year[1]), 0);
 
-  return periodOf("month", now);
+  return null;
+}
+
+/**
+ * Parses `?p=`. Anything unrecognised falls back to the current month rather
+ * than throwing: a hand-edited URL should not blank the dashboard.
+ */
+export function parsePeriod(raw?: string | string[] | null, now: Date = new Date()): Period {
+  return tryParsePeriod(raw) ?? periodOf("month", now);
+}
+
+/**
+ * Parses `?c=`. `off` hides the comparison, a period key picks what to compare
+ * with, and anything else means "the period right before this one". A picked
+ * period takes the length of the shown one, so both columns always cover the
+ * same amount of time.
+ */
+export function comparePeriod(
+  raw: string | string[] | null | undefined,
+  current: Period,
+): Period | null {
+  const value = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? "";
+  if (value === "off") return null;
+
+  const picked = tryParsePeriod(value);
+  const period = picked ? withKind(picked, current.kind) : previousPeriod(current);
+  // Comparing a period with itself is a table of zeros; step back instead.
+  return period.key === current.key ? previousPeriod(current) : period;
 }
 
 /** `-1` is the previous period, `+1` the next one; the step size follows `kind`. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  comparePeriod,
   comparisonRows,
   dayBounds,
   formatChangePercent,
@@ -8,6 +9,7 @@ import {
   periodOf,
   previousPeriod,
   shiftPeriod,
+  tryParsePeriod,
   withKind,
   yearAgoPeriod,
   type CategoryTotal,
@@ -58,6 +60,45 @@ describe("parsePeriod", () => {
   it("accepts a single-digit month and an array from searchParams", () => {
     expect(parsePeriod("2026-1", NOW).key).toBe("2026-01");
     expect(parsePeriod(["2026-03", "2026-04"], NOW).key).toBe("2026-03");
+  });
+});
+
+describe("tryParsePeriod", () => {
+  it("returns null instead of guessing", () => {
+    expect(tryParsePeriod("2026-11")?.key).toBe("2026-11");
+    expect(tryParsePeriod("nonsense")).toBeNull();
+    expect(tryParsePeriod("2026-13")).toBeNull();
+    expect(tryParsePeriod(undefined)).toBeNull();
+  });
+});
+
+describe("comparePeriod", () => {
+  const month = parsePeriod("2026-11", NOW);
+  const quarter = parsePeriod("2026-Q4", NOW);
+  const year = parsePeriod("2026", NOW);
+
+  it("defaults to the period right before the shown one", () => {
+    expect(comparePeriod(undefined, month)?.key).toBe("2026-10");
+    expect(comparePeriod("", quarter)?.key).toBe("2026-Q3");
+    expect(comparePeriod("nonsense", year)?.key).toBe("2025");
+  });
+
+  it("switches the comparison off", () => {
+    expect(comparePeriod("off", month)).toBeNull();
+    expect(comparePeriod("OFF", quarter)).toBeNull();
+  });
+
+  it("takes a picked period in the length of the shown one", () => {
+    expect(comparePeriod("2025-11", month)?.key).toBe("2025-11");
+    expect(comparePeriod("2025-11", quarter)?.key).toBe("2025-Q4");
+    expect(comparePeriod("2024-Q2", year)?.key).toBe("2024");
+    expect(comparePeriod("2024", month)?.key).toBe("2024-01");
+  });
+
+  it("steps back rather than compare a period with itself", () => {
+    expect(comparePeriod("2026-11", month)?.key).toBe("2026-10");
+    expect(comparePeriod("2026-q4", quarter)?.key).toBe("2026-Q3");
+    expect(comparePeriod("2026", year)?.key).toBe("2025");
   });
 });
 

@@ -6,9 +6,11 @@
   and the spending pie are no longer stuck on "this month": a period bar walks
   backwards and forwards by month, quarter or year, and the period lives in the
   URL (`?p=2026-11`, `?p=2026-Q4`, `?p=2026`), so a view can be bookmarked and the
-  back button retraces it. Beside it, `Compare:` measures the period against the
-  one before it or the same period a year earlier and shows a table with both
+  back button retraces it. Beside it, a `Compare:` switch turns on a table with both
   periods' spending per category, the difference in euros and in percent, and
+  income and total expenses underneath; the period it measures against is picked
+  with the same stepper-and-picker as the one on the left, so any two periods can
+  be held side by side. the difference in euros and in percent, and
   income and total expenses underneath. Categories that appear on only one side
   are kept and marked `new` — a subscription that started this month is exactly
   what the comparison is for. Every row links to those transactions.

@@ -503,9 +503,13 @@ walking by one period of the same length, so every view is a bookmark and the
 back button steps through what was actually looked at. Anything unrecognised
 falls back to the current month rather than erroring.
 
-`?c=prev|year|off` picks what the period is measured against: the period right
-before it, the same calendar slot one year earlier (the fair one for
-seasonality), or nothing. The comparison is a table with one line per category
+`?c=` picks what the period is measured against: `off` hides the comparison, a
+period key (`2025-11`, `2025-Q4`, `2024`) picks one, and anything else — the bare
+page included — means the period right before it. The right-hand stepper mirrors
+the left one: arrows walk the compared period and, on a month view, its label is
+a picker; a picked period takes the length of the shown one, so both columns
+always cover the same amount of time. Comparing a period with itself steps back
+instead of drawing a table of zeros. The comparison is a table with one line per category
 and both periods' spending, the difference in cents and in percent, plus income
 and total-expense rows; categories present on only one side are kept and marked
 `new`/negative, because a subscription that started this month is the finding.
