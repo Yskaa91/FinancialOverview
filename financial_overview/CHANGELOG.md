@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 - **The dashboard looks back, and compares.** Income, expenses, the net result
   and the spending pie are no longer stuck on "this month": a period bar walks
@@ -32,7 +32,6 @@
   the merchant `EUROPESE INCASSO` for all 22 direct-debit rows in a month —
   PayPal, the phone bill, the insurer, the card collection. The payee column is
   the merchant now.
-
 - **PayPal rows no longer collapse into one merchant.** The parser took the first
   two words of the `Type` column as the merchant, so every shop paid through
   "Express Checkout Payment" became a single review group, labelled after whichever
