@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notTransfer } from "./filters";
 import { daysAgo } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
+import { accountBalancesAt, type AccountBalance } from "@/lib/queries/history";
 import { propertyTotalCents } from "@/lib/queries/property";
 import {
   comparisonRows,
@@ -140,6 +141,63 @@ export async function getDashboard(
       categoryName: t.category?.name ?? null,
     })),
   };
+}
+
+
+export type AccountChange = {
+  id: string;
+  name: string;
+  type: string;
+  currentCents: number;
+  otherCents: number;
+  deltaCents: number;
+};
+
+export type BalanceSides = { assetsCents: number; liabilitiesCents: number; netCents: number };
+
+export type BalanceComparison = {
+  rows: AccountChange[];
+  current: BalanceSides;
+  other: BalanceSides;
+};
+
+/** Assets are everything that is not a credit card; the card is the liability. */
+function sidesOf(balances: AccountBalance[]): BalanceSides {
+  const sum = (wanted: (row: AccountBalance) => boolean) =>
+    balances.filter(wanted).reduce((total, row) => total + row.cents, 0);
+  const assetsCents = sum((row) => row.type !== "CREDIT_CARD");
+  const liabilitiesCents = sum((row) => row.type === "CREDIT_CARD");
+  return { assetsCents, liabilitiesCents, netCents: assetsCents + liabilitiesCents };
+}
+
+/**
+ * What every account was worth at the end of two periods, and how far it moved
+ * between them. Houses are left out on purpose: they are valued at today's
+ * estimate, so a historical figure would be invented.
+ */
+export async function accountChanges(
+  current: Period,
+  other: Period,
+): Promise<BalanceComparison> {
+  const [currentBalances, otherBalances] = await Promise.all([
+    accountBalancesAt(current.end),
+    accountBalancesAt(other.end),
+  ]);
+  const otherBy = new Map(otherBalances.map((row) => [row.id, row.cents]));
+
+  const rows = currentBalances.map((row) => {
+    const otherCents = otherBy.get(row.id) ?? 0;
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      currentCents: row.cents,
+      otherCents,
+      deltaCents: row.cents - otherCents,
+    };
+  });
+
+  return { rows, current: sidesOf(currentBalances), other: sidesOf(otherBalances) };
 }
 
 /** Uncategorised rows from the last 90 days, for the review queue on /transactions. */

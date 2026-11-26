@@ -16,47 +16,48 @@ function monthEnds(months: number, now = new Date()): Date[] {
   return ends;
 }
 
+type AccountRow = { id: string; name: string; type: string; openingBalanceCents: number };
+type TxnRow = { accountId: string; bookedAt: Date; amountCents: number };
+type TradeRow = {
+  id: string;
+  accountId: string;
+  instrumentId: string;
+  side: string;
+  tradedAt: Date;
+  quantityMicro: number;
+  priceCents: number;
+  feeCents: number;
+};
+type PriceRow = { instrumentId: string; fetchedAt: Date; priceCents: number };
+
 /**
- * Net worth per month end. Cash accounts derive the balance from opening balance
- * plus transactions; broker accounts add holdings valued with the newest price at
- * that date (forward-filled). Positions come from FIFO over the trades up to the
- * date, so a sale or a buy shows up in the right month.
+ * Cash plus holdings per account, as of `end`. Cash is opening balance plus the
+ * movements up to that date; a broker's holdings come from FIFO over its trades,
+ * priced with the newest price known at the time (forward-filled, so a quiet
+ * instrument keeps its last quote).
  */
-export async function netWorthSeries(months = 12): Promise<NetWorthPoint[]> {
-  const ends = monthEnds(months);
+function balancesAtDate(
+  accounts: AccountRow[],
+  transactions: TxnRow[],
+  trades: TradeRow[],
+  prices: PriceRow[],
+  end: Date,
+): Map<string, number> {
+  const balances = new Map<string, number>();
 
-  const [accounts, transactions, trades, prices] = await Promise.all([
-    prisma.account.findMany({ where: { archived: false } }),
-    prisma.transaction.findMany({
-      where: { bookedAt: { lte: ends[ends.length - 1] } },
-      select: { accountId: true, bookedAt: true, amountCents: true },
-      orderBy: { bookedAt: "asc" },
-    }),
-    prisma.trade.findMany({
-      where: { tradedAt: { lte: ends[ends.length - 1] } },
-      orderBy: { tradedAt: "asc" },
-    }),
-    prisma.price.findMany({ orderBy: { fetchedAt: "asc" } }),
-  ]);
+  for (const account of accounts) {
+    const movement = transactions
+      .filter((t) => t.accountId === account.id && t.bookedAt <= end)
+      .reduce((sum, t) => sum + t.amountCents, 0);
+    balances.set(account.id, account.openingBalanceCents + movement);
+  }
 
-  const brokerIds = new Set(accounts.filter((a) => a.type === "BROKER").map((a) => a.id));
+  for (const account of accounts) {
+    if (account.type !== "BROKER") continue;
 
-  return ends.map((end) => {
-    let total = 0;
-
-    for (const account of accounts) {
-      if (brokerIds.has(account.id)) continue;
-      const movement = transactions
-        .filter((t) => t.accountId === account.id && t.bookedAt <= end)
-        .reduce((sum, t) => sum + t.amountCents, 0);
-      total += account.openingBalanceCents + movement;
-    }
-
-    // Broker holdings: FIFO over trades up to this date, priced with the newest
-    // price known at the time.
     const byInstrument = new Map<string, TradeInput[]>();
     for (const trade of trades) {
-      if (trade.tradedAt > end || !brokerIds.has(trade.accountId)) continue;
+      if (trade.accountId !== account.id || trade.tradedAt > end) continue;
       const list = byInstrument.get(trade.instrumentId) ?? [];
       list.push({
         id: trade.id,
@@ -68,25 +69,80 @@ export async function netWorthSeries(months = 12): Promise<NetWorthPoint[]> {
       });
       byInstrument.set(trade.instrumentId, list);
     }
+    if (byInstrument.size === 0) continue;
+
     const { positions } = fifo(byInstrument);
+    let holdings = 0;
     for (const [instrumentId, position] of positions) {
-      const price = [...prices].reverse().find((p) => p.instrumentId === instrumentId && p.fetchedAt <= end);
+      const price = [...prices]
+        .reverse()
+        .find((p) => p.instrumentId === instrumentId && p.fetchedAt <= end);
+      // A price quoted after the date still beats the purchase cost.
       const fallback = [...prices].reverse().find((p) => p.instrumentId === instrumentId);
-      const cents = price?.priceCents ?? fallback?.priceCents ?? position.averageCostCents;
-      total += positionValueCents(position, cents);
+      holdings += positionValueCents(
+        position,
+        price?.priceCents ?? fallback?.priceCents ?? position.averageCostCents,
+      );
     }
+    balances.set(account.id, (balances.get(account.id) ?? 0) + holdings);
+  }
 
-    // Broker cash: snapshots when present, else the account's own movement.
-    for (const account of accounts) {
-      if (!brokerIds.has(account.id)) continue;
-      const movement = transactions
-        .filter((t) => t.accountId === account.id && t.bookedAt <= end)
-        .reduce((sum, t) => sum + t.amountCents, 0);
-      total += account.openingBalanceCents + movement;
-    }
+  return balances;
+}
 
-    return { date: end.toISOString().slice(0, 10), cents: total };
+/** Everything `balancesAtDate` needs, bounded by one date. */
+async function loadBalanceInputs(before: Date, inclusive: boolean) {
+  const bookedAt = inclusive ? { lte: before } : { lt: before };
+  const tradedAt = inclusive ? { lte: before } : { lt: before };
+
+  const [accounts, transactions, trades, prices] = await Promise.all([
+    prisma.account.findMany({
+      where: { archived: false },
+      select: { id: true, name: true, type: true, openingBalanceCents: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    prisma.transaction.findMany({
+      where: { bookedAt },
+      select: { accountId: true, bookedAt: true, amountCents: true },
+      orderBy: { bookedAt: "asc" },
+    }),
+    prisma.trade.findMany({ where: { tradedAt }, orderBy: { tradedAt: "asc" } }),
+    prisma.price.findMany({ orderBy: { fetchedAt: "asc" } }),
+  ]);
+
+  return { accounts, transactions, trades, prices };
+}
+
+/** Net worth per month end, houses excluded (they are valued separately). */
+export async function netWorthSeries(months = 12): Promise<NetWorthPoint[]> {
+  const ends = monthEnds(months);
+  const { accounts, transactions, trades, prices } = await loadBalanceInputs(
+    ends[ends.length - 1],
+    true,
+  );
+
+  return ends.map((end) => {
+    const balances = balancesAtDate(accounts, transactions, trades, prices, end);
+    const cents = [...balances.values()].reduce((sum, value) => sum + value, 0);
+    return { date: end.toISOString().slice(0, 10), cents };
   });
+}
+
+export type AccountBalance = { id: string; name: string; type: string; cents: number };
+
+/**
+ * Every account's balance at the end of `end`, exclusive as a period bound is:
+ * a row booked on the first day of the next period does not count yet.
+ */
+export async function accountBalancesAt(end: Date): Promise<AccountBalance[]> {
+  const { accounts, transactions, trades, prices } = await loadBalanceInputs(end, false);
+  const balances = balancesAtDate(accounts, transactions, trades, prices, end);
+  return accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    cents: balances.get(account.id) ?? 0,
+  }));
 }
 
 /** Income and expense per month, transfers excluded so they never count twice. */

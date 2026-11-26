@@ -105,20 +105,20 @@ export function parsePeriod(raw?: string | string[] | null, now: Date = new Date
 }
 
 /**
- * Parses `?c=`. `off` hides the comparison, a period key picks what to compare
- * with, and anything else means "the period right before this one". A picked
- * period takes the length of the shown one, so both columns always cover the
- * same amount of time.
+ * Parses `?c=`. The comparison is off by default: a period key turns it on and
+ * picks what to measure against, and anything else — `off`, a hand-edited
+ * string — leaves it off. A picked period takes the length of the shown one, so
+ * both columns always cover the same amount of time.
  */
 export function comparePeriod(
   raw: string | string[] | null | undefined,
   current: Period,
 ): Period | null {
   const value = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? "";
-  if (value === "off") return null;
-
   const picked = tryParsePeriod(value);
-  const period = picked ? withKind(picked, current.kind) : previousPeriod(current);
+  if (!picked) return null;
+
+  const period = withKind(picked, current.kind);
   // Comparing a period with itself is a table of zeros; step back instead.
   return period.key === current.key ? previousPeriod(current) : period;
 }

@@ -138,7 +138,8 @@ src/
     queries/
       dashboard.ts             # per-period totals, comparison, net worth, recent
       transactions.ts          # filtered/paged lists, aggregates
-      accounts.ts              # balances, history series
+      accounts.ts              # balances
+      history.ts               # net worth series, cashflow, balances at a date
     import/
       index.ts                 # detect → parse → normalize → dedupe → commit
       asn.ts  paypal.ts  ics.ts
@@ -493,13 +494,18 @@ visible before anything is written, and the footer count follows the decisions.
 
 ## 8. Pages
 
-**Dashboard `/`** — rows in order: the four stat cards (net worth as of today;
-income, expenses and net result for the period, each with its delta); the
-comparison row — table on the left, the compared period's own pie on the right —
-which exists only while the comparison is on; net-worth chart (12 months) next to
-the period's pie; cashflow bars (12 months) next to the uncategorised count; then
-account balances with assets vs liabilities directly underneath and the last eight
-rows beside them.
+**Dashboard `/`** — two modes, one page.
+
+*Comparing off (the default)* — the working view: four stat cards (net worth as
+of today; income, expenses and net result for the period); net-worth chart (12
+months) beside the period's pie; cashflow bars (12 months) beside the
+uncategorised count; account balances with assets vs liabilities directly
+underneath and the last eight rows beside them.
+
+*Comparing on* — only what a comparison is for: the category table full width,
+below it the two pies side by side (one per period), below that the account
+balances at the end of each period with their change. Nothing else, so the page
+answers one question at a time.
 
 The whole page follows a **period** carried in the URL (`src/lib/periods.ts`):
 `?p=2026-11` (month), `?p=2026-Q4` (quarter) or `?p=2026` (year), with `←`/`→`
@@ -507,18 +513,25 @@ walking by one period of the same length, so every view is a bookmark and the
 back button steps through what was actually looked at. Anything unrecognised
 falls back to the current month rather than erroring.
 
-`?c=` picks what the period is measured against: `off` hides the comparison, a
-period key (`2025-11`, `2025-Q4`, `2024`) picks one, and anything else — the bare
-page included — means the period right before it. The right-hand stepper mirrors
-the left one: arrows walk the compared period and, on a month view, its label is
-a picker; a picked period takes the length of the shown one, so both columns
-always cover the same amount of time. Comparing a period with itself steps back
-instead of drawing a table of zeros. The comparison is a table with one line per category
-and both periods' spending, the difference in cents and in percent, plus income
-and total-expense rows; categories present on only one side are kept and marked
-`new`/negative, because a subscription that started this month is the finding.
-Rows link to `/transactions` filtered to that category and period. Income,
-expenses and net are also shown as stat cards with the same delta.
+`?c=` turns the comparison on and names the period to measure against: a key
+(`2025-11`, `2025-Q4`, `2024`), and anything else — missing, `off`, a hand-edited
+string — leaves it off. The right-hand stepper mirrors the left one: arrows walk
+the compared period and, on a month view, its label is a picker; a picked period
+takes the length of the shown one, so both columns always cover the same amount
+of time. Comparing a period with itself steps back instead of drawing a table of
+zeros.
+
+The category table has one line per category with both periods' spending, the
+difference in cents and in percent, plus income and total-expense rows;
+categories present on only one side are kept and marked `new`/negative, because a
+subscription that started this month is the finding. Rows link to
+`/transactions` filtered to that category and period.
+
+Balances per period end come from `accountBalancesAt` (`queries/history.ts`),
+which shares `balancesAtDate` with the net-worth series: cash is opening balance
+plus movements, a broker adds FIFO holdings priced with the newest quote known at
+that date. Houses are excluded from that table — they are valued at today's
+estimate, so a historical figure would be invented.
 
 **Income & expenses `/transactions`** — filter bar (period presets + custom,
 account, category, kind, free text, amount range); table with inline category

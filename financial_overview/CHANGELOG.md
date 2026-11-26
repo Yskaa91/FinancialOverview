@@ -6,15 +6,17 @@
   and the spending pie are no longer stuck on "this month": a period bar walks
   backwards and forwards by month, quarter or year, and the period lives in the
   URL (`?p=2026-11`, `?p=2026-Q4`, `?p=2026`), so a view can be bookmarked and the
-  back button retraces it. Beside it, a `Compare:` switch turns on a table with both
-  periods' spending per category, the difference in euros and in percent, and
-  income and total expenses underneath; the period it measures against is picked
-  with the same stepper-and-picker as the one on the left, so any two periods can
-  be held side by side. The row appears only while the comparison is on, and puts
-  the compared period's own spending pie next to the table. the difference in euros and in percent, and
-  income and total expenses underneath. Categories that appear on only one side
-  are kept and marked `new` — a subscription that started this month is exactly
-  what the comparison is for. Every row links to those transactions.
+  back button retraces it. The label is a month picker, so a jump to some far
+  month is one click.
+- **Comparing is a mode of its own, and off by default.** Switching `Compare` on
+  replaces the dashboard with what a comparison is for: the category table full
+  width — both periods' spending per category, the difference in euros and in
+  percent, income and total expenses underneath, categories that exist on only one
+  side marked `new` — then the two spending pies side by side, then the account
+  balances at the end of each period with their change (assets, credit card debt,
+  net worth). What it measures against is picked with the same stepper-and-picker
+  as the shown period, so any two periods can be held side by side; off, and the
+  ordinary dashboard is back.
 - **Statements are reconciled against each other.** The bank knew that €93,79 left
   for PayPal; PayPal knew it went to Servicecenter Windhorn. Imported separately
   the app counted both as spending. Rows that are the same money are now paired

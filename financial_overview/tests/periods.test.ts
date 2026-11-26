@@ -77,13 +77,10 @@ describe("comparePeriod", () => {
   const quarter = parsePeriod("2026-Q4", NOW);
   const year = parsePeriod("2026", NOW);
 
-  it("defaults to the period right before the shown one", () => {
-    expect(comparePeriod(undefined, month)?.key).toBe("2026-10");
-    expect(comparePeriod("", quarter)?.key).toBe("2026-Q3");
-    expect(comparePeriod("nonsense", year)?.key).toBe("2025");
-  });
-
-  it("switches the comparison off", () => {
+  it("is off unless a period is asked for", () => {
+    expect(comparePeriod(undefined, month)).toBeNull();
+    expect(comparePeriod("", quarter)).toBeNull();
+    expect(comparePeriod("nonsense", year)).toBeNull();
     expect(comparePeriod("off", month)).toBeNull();
     expect(comparePeriod("OFF", quarter)).toBeNull();
   });
