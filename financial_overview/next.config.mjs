@@ -5,6 +5,9 @@ const nextConfig = {
   // settle; revisit in phase 6 when the dashboard starts streaming.
   cacheComponents: false,
   partialPrefetching: false,
+  // pdfjs loads its own worker and feature-detects DOM globals, which a bundler
+  // breaks. Keep it as a plain Node import; it only runs in the import action.
+  serverExternalPackages: ["unpdf"],
   turbopack: {
     rules: {
       "*.css": {

@@ -7,11 +7,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
   decodeStatementBytes,
+  detectPdfSource,
   detectSource,
+  parsePdfStatement,
   parseStatement,
   ImportFormatError,
   type NormalizedRow,
 } from "@/lib/import";
+import { extractPdfLines, looksLikePdf } from "@/lib/import/pdf";
 import { dedupeHash } from "@/lib/import/normalize";
 import { categoriseUncategorised } from "@/lib/categorize/rules";
 import { AI_MODEL, isAiConfigured, proposeForPreview, type AiGroupInput } from "@/lib/categorize/ai";
@@ -87,19 +90,33 @@ export async function previewUpload(formData: FormData): Promise<void> {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (bytes.byteLength > 5_000_000) redirect("/import?error=file-too-large");
-  const text = decodeStatementBytes(bytes);
+  // ICS only publishes PDF, so the upload path accepts both: the bytes decide,
+  // never the extension.
+  const isPdf = looksLikePdf(bytes);
+  const text = isPdf ? "" : decodeStatementBytes(bytes);
   const fileHash = createHash("sha256").update(bytes).digest("hex");
 
   const seen = await prisma.statement.findUnique({ where: { fileHash } });
   if (seen) redirect("/import?error=already-imported");
 
+  let pdfLines: string[] = [];
+  if (isPdf) {
+    try {
+      pdfLines = await extractPdfLines(bytes);
+    } catch {
+      redirect("/import?error=unreadable-pdf");
+    }
+    if (pdfLines.length === 0) redirect("/import?error=unreadable-pdf");
+  }
+
   const explicit = parsedForm.data.source;
-  const source = explicit === "auto" ? detectSource(file.name, text) : explicit;
+  const source =
+    explicit === "auto" ? (isPdf ? detectPdfSource(pdfLines) : detectSource(file.name, text)) : explicit;
   if (!source) redirect("/import?error=unknown-source");
 
-  let result;
+  let result: ReturnType<typeof parseStatement>;
   try {
-    result = parseStatement(source, text);
+    result = isPdf ? parsePdfStatement(source, pdfLines) : parseStatement(source, text);
   } catch (error) {
     const detail = error instanceof ImportFormatError ? error.message : "unreadable file";
     redirect(`/import?error=${encodeURIComponent(`parse:${detail}`)}`);

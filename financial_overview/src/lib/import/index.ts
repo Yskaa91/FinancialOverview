@@ -1,6 +1,7 @@
 import type { StatementSource } from "@/lib/types";
 import { parseAsn } from "./asn";
 import { parseIcs } from "./ics";
+import { parseIcsPdf } from "./ics-pdf";
 import { parsePaypal } from "./paypal";
 import { ImportFormatError } from "./normalize";
 
@@ -71,6 +72,22 @@ export function parseStatement(source: StatementSource, text: string): ParseResu
     default:
       throw new ImportFormatError(String(source), "unknown statement source", []);
   }
+}
+
+/**
+ * A PDF has no header row to read, so the letterhead identifies it. ICS is the
+ * only source that ships PDF, and its first line names the company.
+ */
+export function detectPdfSource(lines: string[]): StatementSource | null {
+  const head = lines.slice(0, 40).join("\n");
+  if (/international card services/i.test(head) || /ics-klantnummer/i.test(head)) return "ICS";
+  return null;
+}
+
+/** PDF counterpart of parseStatement. Only ICS publishes one. */
+export function parsePdfStatement(source: StatementSource, lines: string[]): ParseResult {
+  if (source === "ICS") return parseIcsPdf(lines);
+  throw new ImportFormatError(String(source), "no PDF support for this source", lines.slice(0, 3));
 }
 
 /**

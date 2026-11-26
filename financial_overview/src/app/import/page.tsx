@@ -10,6 +10,7 @@ const ERRORS: Record<string, string> = {
   "missing-input": "Choose an account and a file first.",
   "unknown-account": "That account no longer exists.",
   "file-too-large": "That file is larger than 5 MB.",
+  "unreadable-pdf": "That PDF could not be read. It must be the statement PDF itself, not a scan, and not password protected.",
   // Rows, not bytes: a small file can still hold an unusable number of lines.
   "too-many-rows": "That statement has more rows than this app reviews at once (limit 20.000). Split it by month.",
   "already-imported": "This exact file was imported before. Nothing was changed.",
@@ -106,7 +107,7 @@ export default async function ImportPage({ searchParams }: PageProps<"/import">)
                     type="file"
                     name="file"
                     required
-                    accept=".csv,.CSV,.xml,.txt"
+                    accept=".csv,.CSV,.txt,.pdf,.PDF"
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-surface-muted file:px-2 file:py-1 file:text-xs"
                   />
                 </label>
@@ -122,7 +123,10 @@ export default async function ImportPage({ searchParams }: PageProps<"/import">)
 
             <Card title="What happens next">
               <ol className="list-decimal space-y-1 pl-4 text-sm text-muted">
-                <li>The file is parsed and decoded (cp1252 for ASN, UTF-8 BOM for ICS).</li>
+                <li>
+                  The file is parsed and decoded (cp1252 for ASN, UTF-8 BOM for ICS). ICS
+                  statement PDFs are read as text, so they must not be scans.
+                </li>
                 <li>
                   A review dialog opens with the rows grouped per merchant, the ones a rule already
                   matched below. Nothing is written yet.

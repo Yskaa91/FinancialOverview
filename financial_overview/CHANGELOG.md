@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **ICS statement PDFs import.** ICS only offers CSV for transaction exports, and
+  a cards-only account gets nothing but the monthly PDF. The import page now
+  accepts it: the PDF is read as text, one line per printed row, and the rows are
+  signed the way the statement means them (`Af` spending, `Bij` payments and
+  refunds). The year comes from the statement date, because the rows never carry
+  one. Scans are refused with a clear message rather than imported as nothing.
 - **PayPal files that say `Amount`/`Fees`/`Total` now import.** PayPal swapped
   `Gross`/`Fee`/`Net` for `Amount`/`Fees`/`Total` in the Activity Download, and
   the parser only knew the old names, so the whole file was rejected with "no

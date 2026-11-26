@@ -20,7 +20,8 @@ export function parseStatementDate(input: string): Date | null {
   return null;
 }
 
-function utcDate(year: number, month: number, day: number): Date | null {
+/** UTC midnight, or null when the components do not form a real date. */
+export function utcDate(year: number, month: number, day: number): Date | null {
   const d = new Date(Date.UTC(year, month - 1, day));
   const valid =
     d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;

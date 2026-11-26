@@ -115,9 +115,34 @@ list (`coenfin.nl`); `nils-werner/beancount-paypal` (per-language column packs);
 
 ## 3. ICS (International Card Services)
 
-**Only CSV is machine readable** — ICS: "transacties zijn uitsluitend te
-downloaden in CSV formaat", PDF is display-only (DOC). Mijn ICS → Overzicht →
-Downloaden (transacties).
+Two sources: the CSV export (machine readable, best) and the **monthly statement
+PDF**, which is what a cards-only account gets. Mijn ICS → Overzicht → Downloaden
+(transacties) for CSV; the statement arrives as `ICS.pdf`.
+
+### 3a. Statement PDF
+
+There is no text layer to anchor on, only glyph positions, so the parser works on
+the extracted lines (`src/lib/import/pdf.ts`) and every rule below matches the
+whole line:
+
+```
+24 okt. 25 okt. OCTOPUS ELECTROVERSE LONDON GB 18,41 Af
+```
+
+| Property | Value |
+|---|---|
+| Structure | transaction date, booking date, description + city + country, optional original amount and currency, euro amount, `Af`/`Bij` |
+| Year | **absent from the rows**; taken from the statement date on the letterhead, stepping back a year for a month after it |
+| Sign | `Af` = purchase (negative), `Bij` = payment or refund (positive) — the file states magnitudes |
+| Decimals | `,`; thousands `.` |
+| FX | original amount + currency in front of the euro amount; no rate column |
+| Card | `Uw Card met als laatste vier cijfers 7213` — only the last four digits are read |
+| Row worth skipping | `GEINCASSEERD VORIG SALDO` is last month's direct debit; it is a real card credit, and the same money also appears on the bank statement |
+| Detection | the letterhead (`International Card Services`) — the file is called `Download.pdf` as often as `ICS.pdf` |
+| Fails when | the statement date is missing (the year would be a guess) or the PDF is a scan (no text layer) |
+
+Generate a fixture by rendering the extracted lines to PDF; the committed fixture
+is a sanitised statement, never a real one.
 
 The CSV has **no vendor spec**. Header below is from a real fixture plus two
 independent parsers (CODE). Version-gate on it and fail loudly on a mismatch.

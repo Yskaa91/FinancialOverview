@@ -227,6 +227,7 @@ Key decisions:
 
 ```
 upload(accountId, file)
+  → PDF? extract lines (unpdf), else decode bytes as text
   → detect source (explicit choice, else header sniffing)
   → parser → RawRow[]                       (source-specific: encodings, signs,
                                              preamble rows, multi-line fields)
