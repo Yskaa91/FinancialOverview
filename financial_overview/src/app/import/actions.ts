@@ -16,6 +16,7 @@ import { dedupeHash } from "@/lib/import/normalize";
 import { categoriseUncategorised } from "@/lib/categorize/rules";
 import { AI_MODEL, isAiConfigured, proposeForPreview, type AiGroupInput } from "@/lib/categorize/ai";
 import { classifyPreview, loadCategoryOptions } from "@/lib/review/classify";
+import { ruleCategoryFor } from "@/lib/review/rule-category";
 import { findDuplicateCandidates } from "@/lib/import/duplicates";
 import { ensureTransfersCategory } from "@/lib/categorize/transfers";
 import type {
@@ -520,12 +521,15 @@ export async function commitPreview(formData: FormData): Promise<void> {
       if (!group || !group.recurring) continue;
 
       const proposal = preview.proposals?.rules[key];
-      const decided = decisions.categories[key];
+      // The rule follows the category the rows actually got: if the user changed
+      // the suggestion, a rule carrying the model's pick would silently undo it
+      // on the next import.
       const categoryId =
-        proposal?.categoryId ??
-        (decided === null ? undefined : decided) ??
-        group.match?.categoryId ??
-        undefined;
+        ruleCategoryFor({
+          decided: decisions.categories[key],
+          proposalCategoryId: proposal?.categoryId,
+          matchCategoryId: group.match?.categoryId,
+        }) ?? undefined;
       if (!categoryId || !validCategories.has(categoryId)) continue;
 
       const matchOn = proposal && RULE_MATCH_ON.includes(proposal.matchOn) ? proposal.matchOn : "MERCHANT";

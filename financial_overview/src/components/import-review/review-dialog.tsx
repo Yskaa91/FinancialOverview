@@ -10,6 +10,7 @@ import {
 } from "@/app/import/actions";
 import { formatDay } from "@/lib/dates";
 import { formatCents, formatCentsSigned } from "@/lib/money";
+import { ruleCategoryFor } from "@/lib/review/rule-category";
 import type {
   CategoryOption,
   DuplicateCandidate,
@@ -238,11 +239,14 @@ function GroupRows({
 function RuleProposalRow({
   proposal,
   categories,
+  categoryId,
   checked,
   onToggle,
 }: {
   proposal: RuleProposal;
   categories: CategoryOption[];
+  /** What the rule will actually use: the user's pick wins over the suggestion. */
+  categoryId: string | null;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -263,7 +267,7 @@ function RuleProposalRow({
         {proposal.matchOn.toLowerCase()} {proposal.operator.toLowerCase()}{" "}
         <span className="text-foreground">&quot;{proposal.pattern}&quot;</span>
       </td>
-      <td className="py-1 pr-2 text-xs">{categoryName(categories, proposal.categoryId)}</td>
+      <td className="py-1 pr-2 text-xs">{categoryName(categories, categoryId)}</td>
       <td className="whitespace-nowrap py-1 text-right text-xs tabular text-muted">
         would catch {plural(proposal.hits, "transaction")}
       </td>
@@ -443,6 +447,15 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
     if (picked !== undefined) return picked ?? "";
     return group.proposedCategoryId ?? group.match?.categoryId ?? "";
   };
+
+  /**
+   * A proposed rule is shown with the category those rows are about to get, not
+   * with the model's original suggestion: changing the category of a merchant
+   * has to change the rule listed for it, or the footer would promise one thing
+   * and the database store another.
+   */
+  const ruleCategoryOf = (proposal: RuleProposal) =>
+    ruleCategoryFor({ decided: touched[proposal.key], proposalCategoryId: proposal.categoryId });
 
   /** Picking a category is also the moment a group enters (or leaves) the decisions. */
   const pick = (key: string, next: string | null) => {
@@ -675,6 +688,7 @@ export function ReviewDialog({ review, summary }: { review: ReviewState; summary
                     key={proposal.key}
                     proposal={proposal}
                     categories={review.categories}
+                    categoryId={ruleCategoryOf(proposal)}
                     checked={rules.includes(proposal.key)}
                     onToggle={() => toggleRule(proposal.key)}
                   />
