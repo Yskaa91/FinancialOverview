@@ -105,6 +105,28 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         </Card>
       </div>
 
+      {/* Only when there is something to compare against: an empty row would
+          push the charts down for nothing. */}
+      {comparison && (
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          <Card
+            title={`Comparing ${shown.period.label} with ${comparison.period.period.label}`}
+            className="lg:col-span-2"
+          >
+            <CompareTable rows={comparison.rows} current={shown} other={comparison.period} />
+          </Card>
+          <Card title={`Spending by category, ${comparison.period.period.label}`}>
+            <CategoryPie
+              slices={comparison.period.categories.slice(0, 6).map((c) => ({
+                name: c.name,
+                cents: c.cents,
+                color: c.color,
+              }))}
+            />
+          </Card>
+        </div>
+      )}
+
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <Card title="Net worth, 12 months" className="lg:col-span-2">
           <NetWorthChart points={netWorth} />
@@ -117,49 +139,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
               color: c.color,
             }))}
           />
-        </Card>
-      </div>
-
-      <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <Card
-          title={
-            comparison
-              ? `Comparing ${shown.period.label} with ${comparison.period.period.label}`
-              : "Compare periods"
-          }
-          className="lg:col-span-2"
-        >
-          {comparison ? (
-            <CompareTable
-              rows={comparison.rows}
-              current={shown}
-              other={comparison.period}
-            />
-          ) : (
-            <p className="text-sm text-muted">
-              Comparison is off. Switch <span className="font-medium">Compare</span> on above
-              to see what changed between two periods.
-            </p>
-          )}
-        </Card>
-
-        <Card title="Assets and liabilities">
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted">Assets</dt>
-              <dd className="tabular">{formatCents(data.assetsCents)}</dd>
-            </div>
-            {data.propertyCents > 0 && (
-              <div className="flex justify-between">
-                <dt className="text-muted">of which real estate</dt>
-                <dd className="tabular">{formatCents(data.propertyCents)}</dd>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <dt className="text-muted">Credit card debt</dt>
-              <dd className="tabular">{formatCents(data.liabilitiesCents)}</dd>
-            </div>
-          </dl>
         </Card>
       </div>
 
@@ -189,23 +168,44 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         </Card>
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <Card title="Accounts">
-          {data.accounts.length === 0 ? (
-            <p className="text-sm text-muted">No accounts.</p>
-          ) : (
-            <ul className="divide-y divide-border text-[13px]">
-              {data.accounts.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2">
-                  <Link href={`/accounts/${a.id}`} className="truncate hover:underline">
-                    {a.name}
-                  </Link>
-                  <span className="tabular shrink-0">{formatCents(a.balanceCents)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+      <div className="mt-3 grid content-start gap-3 lg:grid-cols-2">
+        <div className="grid gap-3">
+          <Card title="Accounts">
+            {data.accounts.length === 0 ? (
+              <p className="text-sm text-muted">No accounts.</p>
+            ) : (
+              <ul className="divide-y divide-border text-[13px]">
+                {data.accounts.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+                    <Link href={`/accounts/${a.id}`} className="truncate hover:underline">
+                      {a.name}
+                    </Link>
+                    <span className="tabular shrink-0">{formatCents(a.balanceCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+        <Card title="Assets and liabilities">
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-muted">Assets</dt>
+              <dd className="tabular">{formatCents(data.assetsCents)}</dd>
+            </div>
+            {data.propertyCents > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted">of which real estate</dt>
+                <dd className="tabular">{formatCents(data.propertyCents)}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-muted">Credit card debt</dt>
+              <dd className="tabular">{formatCents(data.liabilitiesCents)}</dd>
+            </div>
+          </dl>
         </Card>
+        </div>
 
         <Card title="Recent transactions">
           {data.recent.length === 0 ? (

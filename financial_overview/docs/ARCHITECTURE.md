@@ -493,9 +493,13 @@ visible before anything is written, and the footer count follows the decisions.
 
 ## 8. Pages
 
-**Dashboard `/`** — net worth now; assets vs liabilities; net-worth chart (12
-months); cashflow bars (12 months); spend by category for the selected period;
-uncategorised count; account balances; last eight rows.
+**Dashboard `/`** — rows in order: the four stat cards (net worth as of today;
+income, expenses and net result for the period, each with its delta); the
+comparison row — table on the left, the compared period's own pie on the right —
+which exists only while the comparison is on; net-worth chart (12 months) next to
+the period's pie; cashflow bars (12 months) next to the uncategorised count; then
+account balances with assets vs liabilities directly underneath and the last eight
+rows beside them.
 
 The whole page follows a **period** carried in the URL (`src/lib/periods.ts`):
 `?p=2026-11` (month), `?p=2026-Q4` (quarter) or `?p=2026` (year), with `←`/`→`

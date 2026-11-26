@@ -10,7 +10,8 @@
   periods' spending per category, the difference in euros and in percent, and
   income and total expenses underneath; the period it measures against is picked
   with the same stepper-and-picker as the one on the left, so any two periods can
-  be held side by side. the difference in euros and in percent, and
+  be held side by side. The row appears only while the comparison is on, and puts
+  the compared period's own spending pie next to the table. the difference in euros and in percent, and
   income and total expenses underneath. Categories that appear on only one side
   are kept and marked `new` — a subscription that started this month is exactly
   what the comparison is for. Every row links to those transactions.
