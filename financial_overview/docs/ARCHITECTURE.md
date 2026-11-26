@@ -134,8 +134,9 @@ src/
     db.ts                      # PrismaClient singleton
     money.ts                   # cents helpers, Intl formatting, fx
     dates.ts                   # period ranges, DD-MM-YYYY parsing
+    periods.ts                 # month/quarter/year keys, shifting, comparison rows
     queries/
-      dashboard.ts             # net worth, deltas, cashflow, top categories
+      dashboard.ts             # per-period totals, comparison, net worth, recent
       transactions.ts          # filtered/paged lists, aggregates
       accounts.ts              # balances, history series
     import/
@@ -492,10 +493,24 @@ visible before anything is written, and the footer count follows the decisions.
 
 ## 8. Pages
 
-**Dashboard `/`** — net worth now with 30-day delta and sparkline; assets vs
-liabilities; this-month income, expense, net; net-worth chart (12 months);
-spend by category (month, top 8); portfolio value by instrument; uncategorised
-count; last import per account.
+**Dashboard `/`** — net worth now; assets vs liabilities; net-worth chart (12
+months); cashflow bars (12 months); spend by category for the selected period;
+uncategorised count; account balances; last eight rows.
+
+The whole page follows a **period** carried in the URL (`src/lib/periods.ts`):
+`?p=2026-11` (month), `?p=2026-Q4` (quarter) or `?p=2026` (year), with `←`/`→`
+walking by one period of the same length, so every view is a bookmark and the
+back button steps through what was actually looked at. Anything unrecognised
+falls back to the current month rather than erroring.
+
+`?c=prev|year|off` picks what the period is measured against: the period right
+before it, the same calendar slot one year earlier (the fair one for
+seasonality), or nothing. The comparison is a table with one line per category
+and both periods' spending, the difference in cents and in percent, plus income
+and total-expense rows; categories present on only one side are kept and marked
+`new`/negative, because a subscription that started this month is the finding.
+Rows link to `/transactions` filtered to that category and period. Income,
+expenses and net are also shown as stat cards with the same delta.
 
 **Income & expenses `/transactions`** — filter bar (period presets + custom,
 account, category, kind, free text, amount range); table with inline category

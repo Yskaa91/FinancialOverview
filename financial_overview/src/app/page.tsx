@@ -7,19 +7,56 @@ import { cashflowSeries, netWorthSeries } from "@/lib/queries/history";
 import { NetWorthChart } from "@/components/charts/net-worth-chart";
 import { CashflowBars } from "@/components/charts/cashflow-bars";
 import { CategoryPie } from "@/components/charts/category-pie";
+import { PeriodBar, type CompareMode } from "@/components/period-bar";
+import { CompareTable } from "@/components/compare-table";
+import {
+  formatChangePercent,
+  parsePeriod,
+  previousPeriod,
+  yearAgoPeriod,
+} from "@/lib/periods";
 import { requireSession } from "@/lib/auth";
 
 // Reads the database on every request; nothing here is safe to prerender.
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+/** "+€120,00 (+18%) vs October 2026" — the delta belongs next to the number. */
+function deltaHint(
+  currentCents: number,
+  otherCents: number | undefined,
+  otherLabel: string | undefined,
+): string | undefined {
+  if (otherCents === undefined || otherLabel === undefined) return undefined;
+  const delta = currentCents - otherCents;
+  if (delta === 0) return `Unchanged vs ${otherLabel}`;
+  // A percentage over zero base says nothing; the amount carries the message.
+  const percent = otherCents === 0 ? "" : ` (${formatChangePercent(delta, otherCents)})`;
+  return `${formatCentsSigned(delta)}${percent} vs ${otherLabel}`;
+}
+
+export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   await requireSession();
+
+  const sp = await searchParams;
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const period = parsePeriod(first(sp.p));
+  const mode: CompareMode =
+    first(sp.c) === "off" ? "off" : first(sp.c) === "year" ? "year" : "prev";
+  const compareWith =
+    mode === "off" ? null : mode === "year" ? yearAgoPeriod(period) : previousPeriod(period);
+
   const [data, netWorth, cashflow] = await Promise.all([
-    getDashboard(),
+    getDashboard(period, compareWith),
     netWorthSeries(12),
     cashflowSeries(12),
   ]);
-  const monthNet = data.monthIncomeCents - data.monthExpenseCents;
+
+  const { period: shown, comparison } = data;
+  const netCents = shown.incomeCents - shown.expenseCents;
+  const otherNetCents = comparison
+    ? comparison.period.incomeCents - comparison.period.expenseCents
+    : undefined;
+  const otherLabel = comparison?.period.period.label;
   const hasAccounts = data.accounts.length > 0;
 
   return (
@@ -38,31 +75,40 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      <PeriodBar period={period} compare={mode} />
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <Stat label="Net worth" value={formatCents(data.netWorthCents)} large />
+          <Stat label="Net worth" value={formatCents(data.netWorthCents)} large hint="As of today" />
         </Card>
         <Card>
           <Stat
-            label="Last 30 days"
-            value={formatCentsSigned(data.change30dCents)}
-            tone={data.change30dCents >= 0 ? "positive" : "negative"}
-            hint="Sum of all account movements"
-          />
-        </Card>
-        <Card>
-          <Stat
-            label="Income this month"
-            value={formatCents(data.monthIncomeCents)}
+            label={`Income, ${shown.period.label}`}
+            value={formatCents(shown.incomeCents)}
             tone="positive"
+            hint={deltaHint(shown.incomeCents, comparison?.period.incomeCents, otherLabel)}
           />
         </Card>
         <Card>
           <Stat
-            label="Expenses this month"
-            value={formatCents(data.monthExpenseCents)}
+            label={`Expenses, ${shown.period.label}`}
+            value={formatCents(shown.expenseCents)}
             tone="negative"
-            hint={`Net ${formatCentsSigned(monthNet)}`}
+            hint={
+              deltaHint(shown.expenseCents, comparison?.period.expenseCents, otherLabel) ??
+              `Net ${formatCentsSigned(netCents)}`
+            }
+          />
+        </Card>
+        <Card>
+          <Stat
+            label="Net result"
+            value={formatCentsSigned(netCents)}
+            tone={netCents >= 0 ? "positive" : "negative"}
+            hint={
+              deltaHint(netCents, otherNetCents, otherLabel) ??
+              "Income minus expenses in the period"
+            }
           />
         </Card>
       </div>
@@ -71,11 +117,11 @@ export default async function DashboardPage() {
         <Card title="Net worth, 12 months" className="lg:col-span-2">
           <NetWorthChart points={netWorth} />
         </Card>
-        <Card title="Spending by category, this month">
+        <Card title={`Spending by category, ${shown.period.label}`}>
           <CategoryPie
-            slices={data.topCategories.map((c) => ({
+            slices={shown.categories.slice(0, 6).map((c) => ({
               name: c.name,
-              cents: c.totalCents,
+              cents: c.cents,
               color: c.color,
             }))}
           />
@@ -83,9 +129,36 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <Card title="Income and expenses per month" className="lg:col-span-2">
-          <CashflowBars points={cashflow} />
+        <Card
+          title={
+            comparison
+              ? `Comparing ${shown.period.label} with ${comparison.period.period.label}`
+              : "Compare periods"
+          }
+          className="lg:col-span-2"
+          action={
+            comparison ? (
+              <Link href={`/?p=${period.key}&c=off`} className="text-xs text-muted underline">
+                hide
+              </Link>
+            ) : undefined
+          }
+        >
+          {comparison ? (
+            <CompareTable
+              rows={comparison.rows}
+              current={shown}
+              other={comparison.period}
+            />
+          ) : (
+            <p className="text-sm text-muted">
+              Comparison is off. Pick <span className="font-medium">Previous</span> or{" "}
+              <span className="font-medium">Year earlier</span> above to see what changed
+              between two periods.
+            </p>
+          )}
         </Card>
+
         <Card title="Assets and liabilities">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -104,27 +177,11 @@ export default async function DashboardPage() {
             </div>
           </dl>
         </Card>
+      </div>
 
-        <Card
-          title="Largest expenses this month"
-          action={
-            <Link href="/transactions" className="text-xs text-muted underline">
-              all
-            </Link>
-          }
-        >
-          {data.topCategories.length === 0 ? (
-            <p className="text-sm text-muted">No expenses this month.</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {data.topCategories.map((c) => (
-                <li key={c.name} className="flex justify-between gap-3">
-                  <span className="truncate">{c.name}</span>
-                  <span className="tabular shrink-0">{formatCents(c.totalCents)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        <Card title="Income and expenses per month" className="lg:col-span-2">
+          <CashflowBars points={cashflow} />
         </Card>
 
         <Card
@@ -141,7 +198,7 @@ export default async function DashboardPage() {
             tone={data.uncategorizedCount > 0 ? "negative" : "neutral"}
             hint={
               data.uncategorizedCount > 0
-                ? "One click per merchant"
+                ? "One click per merchant, any period"
                 : "Everything is categorised"
             }
           />
@@ -176,7 +233,7 @@ export default async function DashboardPage() {
                   <span className="min-w-0">
                     <span className="block truncate">{t.merchant ?? t.description}</span>
                     <span className="block text-xs text-muted">
-                      {formatDay(t.bookedAt)} · {t.accountName} ·{" "}
+                      ${formatDay(t.bookedAt)} · {t.accountName} ·{" "}
                       {t.categoryName ?? "uncategorised"}
                     </span>
                   </span>

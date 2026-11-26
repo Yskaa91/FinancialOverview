@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **The dashboard looks back, and compares.** Income, expenses, the net result
+  and the spending pie are no longer stuck on "this month": a period bar walks
+  backwards and forwards by month, quarter or year, and the period lives in the
+  URL (`?p=2026-11`, `?p=2026-Q4`, `?p=2026`), so a view can be bookmarked and the
+  back button retraces it. Beside it, `Compare:` measures the period against the
+  one before it or the same period a year earlier and shows a table with both
+  periods' spending per category, the difference in euros and in percent, and
+  income and total expenses underneath. Categories that appear on only one side
+  are kept and marked `new` — a subscription that started this month is exactly
+  what the comparison is for. Every row links to those transactions.
 - **Statements are reconciled against each other.** The bank knew that €93,79 left
   for PayPal; PayPal knew it went to Servicecenter Windhorn. Imported separately
   the app counted both as spending. Rows that are the same money are now paired
@@ -17,7 +27,6 @@
   the merchant `EUROPESE INCASSO` for all 22 direct-debit rows in a month —
   PayPal, the phone bill, the insurer, the card collection. The payee column is
   the merchant now.
-## Unreleased
 
 - **PayPal rows no longer collapse into one merchant.** The parser took the first
   two words of the `Type` column as the merchant, so every shop paid through

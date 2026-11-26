@@ -1,8 +1,15 @@
 import { prisma } from "@/lib/db";
 import { notTransfer } from "./filters";
-import { currentMonthRange, daysAgo } from "@/lib/dates";
+import { daysAgo } from "@/lib/dates";
 import { listAccounts } from "@/lib/queries/accounts";
 import { propertyTotalCents } from "@/lib/queries/property";
+import {
+  comparisonRows,
+  type CategoryTotal,
+  type CompareRow,
+  type Period,
+  type PeriodTotals,
+} from "@/lib/periods";
 
 export type DashboardData = {
   netWorthCents: number;
@@ -10,11 +17,11 @@ export type DashboardData = {
   liabilitiesCents: number;
   /** Estimated value of the homes; part of assets and net worth, not of an account. */
   propertyCents: number;
-  change30dCents: number;
-  monthIncomeCents: number;
-  monthExpenseCents: number;
+  /** The period the page is showing. */
+  period: PeriodTotals;
+  /** The period it is measured against, with the category difference. Null when off. */
+  comparison: { period: PeriodTotals; rows: CompareRow[] } | null;
   uncategorizedCount: number;
-  topCategories: { name: string; color: string | null; totalCents: number }[];
   accounts: Awaited<ReturnType<typeof listAccounts>>;
   recent: {
     id: string;
@@ -27,51 +34,79 @@ export type DashboardData = {
   }[];
 };
 
-export async function getDashboard(): Promise<DashboardData> {
-  const { start, end } = currentMonthRange();
-  const accounts = await listAccounts();
-  const propertyCents = await propertyTotalCents();
+/**
+ * Income, spending and the category split for one period. Transfers are filtered
+ * out exactly as everywhere else, so the two figures answer "what did I earn and
+ * what did I spend", not "what moved".
+ */
+export async function totalsForPeriod(period: Period): Promise<PeriodTotals> {
+  const bookedAt = { gte: period.start, lt: period.end };
 
-  const [monthIncome, monthExpense, uncategorized, expenseByCategory, recent] =
+  const [income, expense, grouped] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { bookedAt, amountCents: { gt: 0 }, ...notTransfer },
+      _sum: { amountCents: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { bookedAt, amountCents: { lt: 0 }, ...notTransfer },
+      _sum: { amountCents: true },
+    }),
+    prisma.transaction.groupBy({
+      by: ["categoryId"],
+      where: { bookedAt, amountCents: { lt: 0 }, ...notTransfer },
+      _sum: { amountCents: true },
+    }),
+  ]);
+
+  const ids = grouped
+    .map((row) => row.categoryId)
+    .filter((id): id is string => id !== null);
+  const categories =
+    ids.length === 0
+      ? []
+      : await prisma.category.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, name: true, color: true },
+        });
+  const byId = new Map(categories.map((c) => [c.id, c]));
+
+  const categoryTotals: CategoryTotal[] = grouped
+    .map((row) => {
+      const category = row.categoryId ? byId.get(row.categoryId) : undefined;
+      return {
+        id: row.categoryId,
+        name: row.categoryId ? (category?.name ?? "Unknown") : "Uncategorised",
+        color: category?.color ?? null,
+        cents: Math.abs(row._sum.amountCents ?? 0),
+      };
+    })
+    .sort((a, b) => b.cents - a.cents);
+
+  return {
+    period,
+    incomeCents: income._sum.amountCents ?? 0,
+    expenseCents: Math.abs(expense._sum.amountCents ?? 0),
+    categories: categoryTotals,
+  };
+}
+
+export async function getDashboard(
+  period: Period,
+  compareWith: Period | null = null,
+): Promise<DashboardData> {
+  const [accounts, propertyCents, periodTotals, comparedTotals, uncategorized, recent] =
     await Promise.all([
-      prisma.transaction.aggregate({
-        where: { bookedAt: { gte: start, lt: end }, amountCents: { gt: 0 }, ...notTransfer },
-        _sum: { amountCents: true },
-      }),
-      prisma.transaction.aggregate({
-        where: { bookedAt: { gte: start, lt: end }, amountCents: { lt: 0 }, ...notTransfer },
-        _sum: { amountCents: true },
-      }),
+      listAccounts(),
+      propertyTotalCents(),
+      totalsForPeriod(period),
+      compareWith ? totalsForPeriod(compareWith) : Promise.resolve(null),
       prisma.transaction.count({ where: { categoryId: null, ...notTransfer } }),
-      prisma.transaction.groupBy({
-        by: ["categoryId"],
-        where: { bookedAt: { gte: start, lt: end }, amountCents: { lt: 0 }, ...notTransfer },
-        _sum: { amountCents: true },
-      }),
       prisma.transaction.findMany({
         orderBy: [{ bookedAt: "desc" }, { id: "desc" }],
         take: 8,
         include: { account: { select: { name: true } }, category: { select: { name: true } } },
       }),
     ]);
-
-  const categoryIds = expenseByCategory
-    .map((row) => row.categoryId)
-    .filter((id): id is string => id !== null);
-  const categories = await prisma.category.findMany({
-    where: { id: { in: categoryIds } },
-    select: { id: true, name: true, color: true },
-  });
-  const categoryById = new Map(categories.map((c) => [c.id, c]));
-
-  const topCategories = expenseByCategory
-    .map((row) => ({
-      name: row.categoryId ? (categoryById.get(row.categoryId)?.name ?? "Unknown") : "Uncategorised",
-      color: row.categoryId ? (categoryById.get(row.categoryId)?.color ?? null) : null,
-      totalCents: Math.abs(row._sum.amountCents ?? 0),
-    }))
-    .sort((a, b) => b.totalCents - a.totalCents)
-    .slice(0, 6);
 
   const assetsCents =
     accounts
@@ -86,11 +121,14 @@ export async function getDashboard(): Promise<DashboardData> {
     assetsCents,
     propertyCents,
     liabilitiesCents,
-    change30dCents: accounts.reduce((sum, a) => sum + a.change30dCents, 0),
-    monthIncomeCents: monthIncome._sum.amountCents ?? 0,
-    monthExpenseCents: Math.abs(monthExpense._sum.amountCents ?? 0),
+    period: periodTotals,
+    comparison: comparedTotals
+      ? {
+          period: comparedTotals,
+          rows: comparisonRows(periodTotals.categories, comparedTotals.categories),
+        }
+      : null,
     uncategorizedCount: uncategorized,
-    topCategories,
     accounts,
     recent: recent.map((t) => ({
       id: t.id,
