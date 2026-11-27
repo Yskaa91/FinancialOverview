@@ -123,18 +123,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             </Card>
           </div>
 
-          <div className="mt-3 grid gap-3 lg:grid-cols-3">
-            <Card title="Net worth, 12 months" className="lg:col-span-2">
-              <NetWorthChart points={netWorth} />
-            </Card>
+          {/* Two rows of two, so all four cards are half width: the category
+              names carry the meaning and were the first thing to be clipped when
+              they shared a row with a wider chart. */}
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
             <Card title={`Spending by category, ${shown.period.label}`}>
               <CategoryPie slices={pie(shown)} />
-            </Card>
-          </div>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-3">
-            <Card title="Income and expenses per month" className="lg:col-span-2">
-              <CashflowBars points={cashflow} />
             </Card>
 
             <Card
@@ -155,6 +149,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                     : "Everything is categorised"
                 }
               />
+            </Card>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            <Card title="Income and expenses per month">
+              <CashflowBars points={cashflow} />
+            </Card>
+            <Card title="Net worth, 12 months">
+              <NetWorthChart points={netWorth} />
             </Card>
           </div>
 

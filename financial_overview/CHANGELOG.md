@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.1
+
+- **The dashboard puts the categories first, and gives them room.** The four cards
+  under the headline figures are now two rows of two, all the same width: spending
+  by category beside the uncategorised count, then income and expenses beside the
+  twelve-month net worth. Sharing a row with a double-width chart is what clipped
+  the category names, and the donut inside the card now takes a third of the width
+  instead of two fifths, so "Boodschappen" and "Persoonlijk" fit whole.
+
 ## 0.8.0
 
 - **Transfers are one category, and the reconciliation page is gone.** A row that

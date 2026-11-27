@@ -73,7 +73,9 @@ export function CategoryPie({ slices }: { slices: CategorySlice[] }) {
         ))}
       </ul>
 
-      <div className="order-1 w-full sm:order-2 sm:w-2/5">
+      {/* The donut is decoration once the list is there, so it takes the smaller
+          share: at 2/5 of a narrow card the names lost their last characters. */}
+      <div className="order-1 w-full sm:order-2 sm:w-1/3">
         <div className="aspect-[4/3] max-h-[200px] w-full">
           <ResponsiveContainer>
             <PieChart>
