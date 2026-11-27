@@ -53,3 +53,46 @@ npm test && npm run lint && npm run build
 
 New non-trivial logic (a parser, FIFO, money or date handling) needs a test or an
 assert-based self-check. A new parser needs a fixture file in `tests/fixtures/`.
+
+## Verification, not intention
+
+Releases shipped broken from this repo for one reason: a change was reasoned
+about, then described as done, without ever producing the artifact it affects.
+These rules are the fix, and they override any urge to report quickly.
+
+- **Compute generated values, never infer them.** A tag, URL, header or config
+  key that a workflow, proxy or config file derives has to be printed locally and
+  read before it is pushed. Publishing `…-amd64-amd64` while `config.yaml` asked
+  for `…-amd64` cost two failed updates and was one `sed` away from being caught.
+- **Reproduce the artifact.** For anything a browser, container or the Supervisor
+  consumes — HTML, JS chunks, response headers, image tags — fetch the built
+  output and read it. A green build and green tests say nothing about emitted
+  output. Rewriting Next's `basePath` to `/` inside a chunk produced
+  `//portfolio`; one `curl` of that chunk shows it.
+- **Prove install paths in a pristine tree.** Any Dockerfile or dependency change
+  is validated by a clean `npm ci` and build in an empty directory, or by a real
+  image build. The working tree's `node_modules` proves nothing: dropping the
+  compiler broke `npm ci` on a version that had already shipped.
+- **Verify both directions of a two-sided change.** Proxy and app config,
+  exporter and importer, schema and migration, workflow and `config.yaml`: check
+  every mode, not the one that was convenient.
+- **Facts about Home Assistant, GHCR, Prisma and Next.js come from documentation
+  or the local install, never from memory.** `node_modules/next/dist/docs/` is on
+  disk and the HA and GHCR docs are a search away. When a fact cannot be checked,
+  say so at the point where it is used.
+- **Name the evidence class in the summary: executed, simulated, or untested.**
+  "Works" without one of those is not auditable. Never write "verified" when the
+  evidence is a re-reading of your own diff.
+- **State the assumption that would break it,** in one line: what has to be true
+  for this to work, and what happens if it is not. That line is what makes a
+  wrong assumption cheap to find later.
+- **Secrets never enter the repo or a shared artifact.** Before making a
+  repository or package public, or copying a key into anything tracked, run
+  `git grep -I -l -E 'mstrl_[A-Za-z0-9]{10,}|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}' $(git rev-list --all)`
+  and read the hits. A token that has to exist on a host is read-only, scoped to
+  one repository or package, and documented together with where it is stored.
+- **Kill background processes by PID** (`kill "$(cat pidfile)"`), never
+  `pkill -f <pattern>`: the pattern matches the shell running it.
+- **A version bump is a release.** It is only correct once the artifact exists at
+  the tag the add-on asks for: check the registry or the workflow run before
+  telling anyone to update.
