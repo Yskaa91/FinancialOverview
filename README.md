@@ -69,8 +69,8 @@ npm run dev                    # http://localhost:3000
 ### Releasing
 
 Bump `version` in `financial_overview/config.yaml` and push to `main`.
-`.github/workflows/build-addon-image.yml` builds both architectures and pushes
-`ghcr.io/yskaa91/financial-overview-<arch>:<version>`; the Supervisor pulls that
+`.github/workflows/build-addon-image.yml` builds amd64 and pushes
+`ghcr.io/yskaa91/financial-overview-amd64:<version>`; the Supervisor pulls that
 tag once the add-on store sees the new version. The workflow authenticates with
 the repository's own `GITHUB_TOKEN` (`packages: write`), so no secret is stored in
 the repo and neither the code nor the image has to be public.
@@ -96,9 +96,10 @@ alternatives are a public store repository that contains only `config.yaml` and
 network (`registry:2` behind basic auth), which keeps the image inside the house
 but needs an always-on host.
 
-Private repositories spend GitHub Actions minutes, and an emulated arm64 build is
-the expensive part. Drop `aarch64` from the workflow matrix if nothing here runs
-on a Pi.
+Only amd64 is built: a native build needs no QEMU, and emulating arm64 was the
+expensive part of the Actions minutes a private repository spends. To cover a Pi,
+add an `aarch64` / `linux/arm64` row to the workflow matrix and `aarch64` to
+`config.yaml`'s arch list.
 
 ## How it decides a category
 

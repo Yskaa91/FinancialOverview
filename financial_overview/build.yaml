@@ -1,7 +1,6 @@
 # Both stages in the Dockerfile pin their own base image, because the Supervisor
 # does not always pass build_from through. Kept in sync so either path agrees.
 build_from:
-  aarch64: node:22-bookworm-slim
   amd64: node:22-bookworm-slim
 labels:
   org.opencontainers.image.title: Financial Overview

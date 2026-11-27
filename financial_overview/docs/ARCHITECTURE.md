@@ -100,13 +100,16 @@ add-on options (/data/options.json)
   the Dockerfile on the Home Assistant host. Without it, every update compiled
   the app there (`npm ci`, `prisma generate`, `next build`, `npm prune`), which is
   minutes on x86 and much more on a Pi. `.github/workflows/build-addon-image.yml`
-  builds both architectures with buildx/QEMU and pushes `<arch>-<version>` and
-  `<arch>-latest`; the version it tags comes from `config.yaml`, and so does the
+  builds amd64 with buildx and pushes `<version>` and `latest`; the version it
+  tags comes from `config.yaml`, and so does the
   image name, so the two cannot drift. The Dockerfile stays buildable on its own
   for a local build, which is what the workflow uses. The package is private, not
   public: the Supervisor is given a `ghcr.io` credential (Settings → Apps → ⋮ →
   Registries) and the store URL carries a read-only token, so nothing about the
-  app is world-readable.
+  app is world-readable. Only amd64 is published, because that is the
+  architecture this runs on and an emulated arm64 build spends the most Actions
+  minutes; `aarch64` goes back into the matrix next to `config.yaml`'s arch list
+  if a Pi ever needs it.
 - **The add-on labels are baked into the image.** `io.hass.version`,
   `io.hass.type` and `io.hass.arch` are normally passed with
   `docker build --label` by the Supervisor; a pulled image has to declare them
