@@ -60,6 +60,19 @@ describe("rewriteUrls", () => {
     expect(rewriteUrls(`href="${INGRESS_MARKER}"`, "")).toBe('href="/"');
   });
 
+  // The bug this guards: rewriting the bare marker to "/" in the client bundle
+  // made Next's basePath "/", so addPathPrefix("/portfolio", "/") produced
+  // "//portfolio" and the browser went to http://portfolio.
+  it("empties the bare marker inside JavaScript", () => {
+    const chunk = `let n="${INGRESS_MARKER}";addPathPrefix("/portfolio",n)`;
+    expect(rewriteUrls(chunk, "", false)).toBe('let n="";addPathPrefix("/portfolio",n)');
+    expect(rewriteUrls(chunk, PREFIX, false)).toBe(`let n="${PREFIX}";addPathPrefix("/portfolio",n)`);
+  });
+
+  it("keeps asset prefixes intact inside JavaScript", () => {
+    expect(rewriteUrls(`p="${INGRESS_MARKER}/_next/"`, "", false)).toBe('p="/_next/"');
+  });
+
   it("leaves content without the marker alone", () => {
     const body = "no urls here, just a merchant name";
     expect(rewriteUrls(body, PREFIX)).toBe(body);

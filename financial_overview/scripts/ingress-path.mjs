@@ -51,11 +51,16 @@ export function upstreamPath(prefix, url) {
  * the flight data that repeats those hrefs after hydration, the webpack runtime's
  * public path, and Next's own redirects. One literal swap therefore moves the
  * whole app under the real prefix without parsing anything.
+ *
+ * `bareRoot` disambiguates the one case that is not a URL: the marker on its own.
+ * In markup it is the app root, so `href="/__ingress"` becomes `href="/"`. In
+ * JavaScript it is Next's `basePath` constant, which is *concatenated*
+ * (`addPathPrefix(path, basePath)`), so for direct access it has to become the
+ * empty string — leaving "/" there yields "//portfolio", which a browser reads as
+ * the host `portfolio`.
  */
-export function rewriteUrls(text, prefix) {
-  // "/__ingress" on its own means the app root: "" would make `href=""`, which
-  // reloads the current page instead of going home.
-  const bare = prefix || "/";
+export function rewriteUrls(text, prefix, bareRoot = true) {
+  const bare = prefix || (bareRoot ? "/" : "");
   let out = text.replaceAll(`${INGRESS_MARKER}/`, `${prefix}/`);
   for (const terminator of TERMINATORS) {
     out = out.replaceAll(INGRESS_MARKER + terminator, bare + terminator);

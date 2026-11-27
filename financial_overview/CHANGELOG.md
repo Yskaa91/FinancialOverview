@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.3
+
+- **Tab links work again.** Clicking "Portfolio" went to `http://portfolio`.
+  The build runs the app under a placeholder path (`/__ingress`) that the proxy
+  swaps for the real one, and for direct access on port 3000 that swap turned the
+  placeholder into `/` — including inside the client bundle, where Next keeps it
+  as its base path and concatenates: `addPathPrefix("/portfolio", "/")` produced
+  `//portfolio`, and a browser reads a lead-in `//` as a host name. In scripts the
+  placeholder now becomes the empty string, so the link goes where the anchor
+  says. Markup keeps the `/` form, where the placeholder means the app root.
+
 ## 0.7.2
 
 - **The add-on opens inside Home Assistant.** It used to publish port 3000 and

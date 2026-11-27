@@ -80,7 +80,11 @@ add-on options (/data/options.json)
   and the refresh header. The Supervisor strips the prefix before the request
   arrives and sends it as `X-Ingress-Path`; the proxy also accepts a prefix that
   was not stripped. A direct request on port 3000 has no prefix, and the same
-  swap removes the marker, so LAN access keeps working at `/`.
+  swap removes the marker, so LAN access keeps working at `/`. The marker means
+  two different things and is replaced accordingly: in markup it is the app root
+  (`href="/__ingress"` → `href="/"`), but in scripts it is Next's `basePath`
+  constant, which is concatenated with paths — there it has to become the empty
+  string, because `/` yields `//portfolio` and the browser reads that as a host.
 - **The proxy is the only process on the published port.** It starts `next start`
   on loopback (`APP_PORT`, default 3001), waits for it to accept connections, and
   exits when it does, so a crashed server restarts the container instead of

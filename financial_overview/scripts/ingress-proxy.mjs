@@ -73,8 +73,12 @@ function handle(req, res) {
         // A rewritten body has a different length, so its ETag is wrong too.
         delete out.etag;
 
-        if (TEXTUAL.test(String(fromApp.headers["content-type"] ?? "")) && body.length > 0) {
-          body = Buffer.from(rewriteUrls(body.toString("utf8"), prefix), "utf8");
+        const type = String(fromApp.headers["content-type"] ?? "");
+        if (TEXTUAL.test(type) && body.length > 0) {
+          // In scripts and stylesheets the marker is a base path that Next
+          // concatenates, never a link; see rewriteUrls.
+          const bareRoot = !/^(?:application|text)\/(?:javascript|css)/i.test(type);
+          body = Buffer.from(rewriteUrls(body.toString("utf8"), prefix, bareRoot), "utf8");
         }
         // Redirects have to move with the app: a bare "/login" from Next would
         // send the ingress iframe to the Home Assistant homepage. `refresh` is
