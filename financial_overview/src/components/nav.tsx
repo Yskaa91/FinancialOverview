@@ -6,7 +6,6 @@ import { logout } from "@/app/login/actions";
 import {
   ArrowLeftRight,
   House,
-  Link2,
   LineChart,
   LayoutDashboard,
   Settings,
@@ -21,7 +20,6 @@ const tabs = [
   { href: "/accounts", label: "Accounts", icon: Wallet },
   { href: "/portfolio", label: "Portfolio", icon: LineChart },
   { href: "/property", label: "Real estate", icon: House },
-  { href: "/reconcile", label: "Reconciliation", icon: Link2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

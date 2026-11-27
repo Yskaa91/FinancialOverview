@@ -175,8 +175,9 @@ Sample rows (real shape):
 ```
 
 Parser plan: negate `D` rows to negative cents, keep the original amount and
-currency, and treat `GEINCASSEERD VORIG SALDO` as the settlement row that pairs
-with the bank debit (see the transfer pairing in `docs/ARCHITECTURE.md` §5).
+currency, and treat `GEINCASSEERD VORIG SALDO` as a settlement row: it is a credit
+on the card, so `isAccountTransfer` proposes the `Transfers` category for it (see
+`docs/ARCHITECTURE.md` §5b).
 
 Sources: ICS customer-service page (CSV only); `yholkamp/transactiesinladen`
 `example.csv` fixture; `TerrorSource/BankCSV-rompslomp` (`parse_ics_csv`);

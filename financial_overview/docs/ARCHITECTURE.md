@@ -259,6 +259,7 @@ PropertyValuation  id, propertyId, valuedAt, cents
 Price          id, instrumentId, fetchedAt, priceCents, source(MANUAL|STOOQ|YAHOO)
 Snapshot       id, accountId, takenAt, balanceCents, source(IMPORT|MANUAL)
 TransferLink   id, kind(FUNDING|SETTLEMENT|OWN_ACCOUNT), method(AUTO|MANUAL), createdAt
+               -- dormant since 0.8.0: written before that, never created again
 Setting        key PRIMARY KEY, valueJson
 ```
 
@@ -277,11 +278,16 @@ Key decisions:
 - **Balance truth order.** Latest statement `balanceAfterCents` → opening
   balance plus transaction sum → manual `Snapshot`. Broker accounts use cash
   snapshot plus holdings value.
-- **One movement, two rows.** The bank's direct debit to PayPal and the PayPal
-  purchase it paid for are the same money. Both rows survive — the bank needs its
-  row for the balance chain, PayPal needs its row for the shop — and
-  `TransferLink` joins them. The leg the pairing does not pick as *carrier* is
-  flagged `excludeFromSpending`, which is what keeps income and expenses honest.
+- **Transfers are a category, not a link.** The bank's direct debit to PayPal and
+  the PayPal purchase it paid for are the same money, but the app no longer pairs
+  them. The row that only moves money between your own accounts is categorised
+  `Transfers` (kind `TRANSFER`), and everything with that kind is dropped from
+  income and expenses by `lib/queries/filters.ts` before any report sees it. Which
+  rows get it is your call: a rule ("counterparty contains PAYPAL → Transfers"),
+  the import review dialog, or a manual pick — and `MANUAL` still wins. The cost
+  of this simplicity is that nothing detects the double count for you: a funding
+  leg you leave uncategorised counts as spending, and a transfer you exclude while
+  its wallet statement was never imported takes that spending out of the reports.
 - **A home is not an account.** `Property` stands on its own and is added to
   assets and net worth by the dashboard query, so it never shows up in the
   accounts list or in the import flow. Its value is an estimate: the purchase
@@ -359,57 +365,37 @@ Parser status and the documented-vs-observed split per source live in
 itself recommends; it is optional and only worth adding if the CSV becomes
 unstable.
 
-## 5b. Reconciliation between statements
+## 5b. Transfers between own accounts
 
-Each statement is a partial view. ASN prints `Europese incasso … PAYPAL` and
-nothing about the shop; PayPal prints the shop and nothing about the bank. The
-ICS statement prints the purchases and one `GEINCASSEERD VORIG SALDO` line that
-the bank also shows as a debit. Importing both without linking counts the same
-money twice in every income-and-expenses figure.
+One category, no balancing. A row that moves money between your own accounts —
+bank to savings, bank to PayPal, the card bill — is categorised `Transfers`
+(kind `TRANSFER`), and `lib/queries/filters.ts` excludes that kind from income,
+expenses and every category total. Balances are computed from the rows
+themselves, so nothing is lost from a balance sheet.
 
 ```
-pairing (lib/transfers/pairing.ts, pure)
-  rows of different accounts, same currency, equal |amount|                  gate 1
-  one row's text names the other account (hint, see below)                   gate 2
-  booking dates within PAIRING_WINDOW_DAYS (7)                              gate 3
-  kind from the signs; deterministic greedy, each row used once
-     ↓
-linkTransfers (lib/transfers/link.ts)
-  TransferLink row + transferLinkId on both rows
-  excluded leg: excludeFromSpending = true, category = Transfers (never MANUAL)
-     ↓
-reports and the transactions list read excludeFromSpending (lib/queries/filters.ts)
+rule / review dialog / manual pick  →  category kind TRANSFER
+                                         ↓
+                        notTransfer (lib/queries/filters.ts)
+                        drops it from income, expenses, category totals
 ```
 
-- **Hints** come from the account itself: its name, its IBAN, and for `PAYPAL` or
-  `ICS` the wording the bank actually prints (`paypal`, `card services`,
-  `creditcard`, `ics`). Words match whole words so "ICS" never hits "statistics";
-  numbers match on digits so a spaced IBAN is the same hint.
-- **Kind.** Opposite signs are `SETTLEMENT` (a card bill, a withdrawal landing) and
-  nothing counts on either side. Two debits are `FUNDING` and the leg that names
-  the shop keeps counting. Two credits are penalised: money the bank received from
-  a wallet means the wallet paid it out.
-- **Carrier.** The statement that names shops gets first refusal: the PayPal
-  purchase counts, the ASN direct debit does not. If that row names no shop (a
-  withdrawal), the bank's own row keeps the expense visible.
-- **Manual.** A pair the automatic pass refuses can be linked by hand from
-  `/reconcile`, with the same validation minus the hint; unlinking puts both rows
-  back to counting and removes only the category the app set itself.
-- **Idempotent.** Linked rows are never candidates again, so re-running the pass
-  changes nothing. Importing a statement runs it over that statement's period
-  ±14 days, in both directions, so import order does not matter.
-- **What it finds.** Rows that name another account and still have no partner are
-  listed on `/reconcile` — usually a statement that was never imported, or a leg
-  that falls outside the imported period. That page also shows per-account
-  coverage, which is the same question asked the other way.
-- **A card is not reconciled row by row.** A card is collected once a month: the
-  bank books one direct debit, the card statement holds dozens of purchases, so no
-  single card row ever has a partner and listing them all buried the rows that
-  matter. Card rows are therefore left out of that list and checked per statement
-  as a total (`lib/transfers/card-settlement.ts`, pure): the sum of a statement's
-  charges has to equal one bank debit of the same account, booked between three
-  days before the statement end and twenty-one days after it. Measured on a real
-  pair: charges −377,45 and the ASN debit of −377,45 four days later.
+- **Who decides.** You do, with a rule, the import review dialog, or a manual
+  pick. `MANUAL` is final.
+- **What is detected for you.** `isAccountTransfer` (`lib/categorize/transfers.ts`)
+  still spots the hard cases — an own IBAN in the counterparty field, an own
+  account name next to a movement word, a `GEINCASSEERD`/`VORIG SALDO` card line —
+  and *proposes* `Transfers` in the review dialog. It never applies anything by
+  itself: a wrong transfer silently hides real spending.
+- **Removed in 0.8.0.** The automatic pairing (`pairTransfers`), the link table's
+  writer, the `/reconcile` page and its coverage view are gone. Nothing pairs rows
+  any more, so `TransferLink` and `Transaction.transferLinkId` survive only as
+  data written before that version, and `excludeFromSpending` keeps its effect on
+  those rows.
+- **The trade.** The double count is only avoided when the funding leg is
+  categorised. If a wallet or card statement was never imported, excluding the
+  bank leg removes that spending from the reports entirely — which is the price of
+  not maintaining a pairing engine.
 
 ## 6. Categorisation
 
@@ -750,7 +736,7 @@ add-on backup: treat backups as secret material.
 | 0 | Skeleton: stack, schema, four pages with empty states, layout shell |
 | 1 | Accounts CRUD, categories CRUD, settings, money/format helpers |
 | 2 | ASN importer end to end + transactions table + dedupe |
-| 3 | PayPal and ICS importers, transfer pairing |
+| 3 | PayPal and ICS importers, own-account transfer detection |
 | 4 | Rules engine, merchant learning, review dialog, AI rule proposals |
 | 5 | Trades, FIFO, prices, broker account page |
 | 6 | Dashboard aggregates and charts, balance history |
@@ -764,7 +750,7 @@ plus CAMT.053.
 
 - **ICS sign convention and card payments.** ICS makes purchases positive and
   payments negative, and a bank→card transfer must not count twice. Both are
-  handled by one parser rule and the transfer pairing, and both have fixtures.
+  handled by one parser rule and the transfer detection, and both have fixtures.
 - **PayPal localised headers and amounts.** The CSV header follows the account
   language (EN/NL at minimum) and amounts are "localized". Build a column map by
   name, and verify the decimal separator against one real NL export before making
@@ -791,9 +777,9 @@ plus CAMT.053.
 - **Cheap models get ambiguous merchants wrong.** The suggestion arrives
   pre-selected but unapproved, and `c: 0` is respected as "no idea", so a wrong
   guess costs one click. It never becomes a rule for a one-off merchant.
-- **Pairing replaced the legacy `transferGroupId`.** That column marked pairs
-  without ever deciding which leg counts, and nothing read it. It is dropped;
-  `TransferLink` plus `excludeFromSpending` say both things, and the pairing can be
-  re-run or undone.
+- **Pairing was removed in 0.8.0.** It existed to decide which leg of a movement
+  counts, which the `Transfers` category now settles by not counting either side:
+  the wallet or card row keeps its own category and counts, the funding leg is
+  `Transfers` and does not. Fewer moving parts, at the price described in §5b.
 - **The AI key is only checked on use.** A wrong key surfaces as
   `request-failed` in the dialog, not at boot; the import itself is unaffected.

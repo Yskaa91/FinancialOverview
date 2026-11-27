@@ -1,25 +1,26 @@
 # Changelog
 
-## 0.7.6
+## 0.8.0
 
-- **The dashboard period buttons work again.** Every link there is a root URL
-  with a query (`/?p=2026-09&c=off`), and the proxy turned that into
-  `/__ingress/?p=…` on the way to the app. Next answers a trailing slash under its
-  base path with a 308 back to the slashless form, and the rewrite turned that
-  into a redirect to the same URL — so pressing "previous month" did nothing.
-  Under the Home Assistant panel the same redirect also carried the prefix twice.
-  Both are fixed, with tests on the two shapes.
-
-## 0.7.5
-
-- **Card rows stop pretending to be unmatched.** A card is collected once a month,
-  so its individual purchases can never pair with anything — the bank holds one
-  debit for the whole statement. Every ICS row therefore sat in the
-  reconciliation list as if something were wrong, which hid the rows that really
-  do need attention. Card rows are now left out of that list, and the statement
-  itself is checked: `/reconcile` shows, per card statement, the charges it adds
-  up to and the bank debit that paid it, or says that no debit was found. On a real
-  statement the two agree to the cent (−377,45, four days apart).
+- **Transfers are one category, and the reconciliation page is gone.** A row that
+  only moves money between your own accounts — bank to savings, bank to PayPal,
+  the card bill — now simply carries the `Transfers` category, and everything with
+  that category is left out of income, expenses and every category total. Which
+  rows get it is your call: a rule, the import review dialog, or a manual pick.
+  The automatic pairing, the `/reconcile` page, its coverage table and the card
+  statement totals are removed with it, along with `TransferLink` writes: nothing
+  pairs rows any more, so the column and table survive only for rows written
+  before this release.
+- **What that costs.** Nothing detects the double count for you. Leave a funding
+  leg uncategorised and it counts as spending; exclude one while the wallet
+  statement was never imported and that spending leaves the reports. Rules do the
+  work the pairing used to.
+- **The dashboard period buttons work again.** Every link there is a root URL with
+  a query (`/?p=2026-09&c=off`), and the proxy sent it upstream as
+  `/__ingress/?p=…`. Next answers a trailing slash under its base path with a 308
+  back to the slashless form, which the rewrite turned into a redirect to the same
+  URL, so pressing "previous month" did nothing. Under the Home Assistant panel
+  the same redirect also carried the prefix twice.
 
 ## 0.7.4
 
