@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendVary,
   INGRESS_MARKER,
   resolvePrefix,
   rewriteLocation,
@@ -80,6 +81,22 @@ describe("rewriteUrls", () => {
 
   it("rewrites a redirect target", () => {
     expect(rewriteUrls(`${INGRESS_MARKER}/login?error=1`, PREFIX)).toBe(`${PREFIX}/login?error=1`);
+  });
+});
+
+describe("appendVary", () => {
+  it("keeps what the app already varies on", () => {
+    expect(appendVary("Accept-Encoding", "X-Ingress-Path")).toBe("Accept-Encoding, X-Ingress-Path");
+  });
+
+  it("does not duplicate a name it already has", () => {
+    expect(appendVary("accept-encoding, x-ingress-path", "X-Ingress-Path")).toBe(
+      "accept-encoding, x-ingress-path",
+    );
+  });
+
+  it("starts the list when there is none", () => {
+    expect(appendVary(undefined, "X-Ingress-Path")).toBe("X-Ingress-Path");
   });
 });
 

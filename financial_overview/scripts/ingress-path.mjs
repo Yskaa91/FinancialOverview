@@ -70,6 +70,20 @@ export function rewriteUrls(text, prefix, bareRoot = true) {
 }
 
 /**
+ * Add a header name to a `Vary` value without dropping what is already there.
+ * Rewritten responses differ per serving mode, so a cache has to key on the
+ * header that carries it.
+ */
+export function appendVary(value, name) {
+  const existing = String(value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (existing.some((part) => part.toLowerCase() === name.toLowerCase())) return existing.join(", ");
+  return [...existing, name].join(", ");
+}
+
+/**
  * A redirect target, placed under the prefix.
  *
  * Most redirects Next emits carry the marker (page-level ones do). A Server

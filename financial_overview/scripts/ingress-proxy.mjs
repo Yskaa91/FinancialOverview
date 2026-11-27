@@ -13,6 +13,8 @@ import http from "node:http";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import {
+  appendVary,
+  INGRESS_MARKER,
   resolvePrefix,
   rewriteLocation,
   rewriteSetCookie,
@@ -74,11 +76,19 @@ function handle(req, res) {
         delete out.etag;
 
         const type = String(fromApp.headers["content-type"] ?? "");
-        if (TEXTUAL.test(type) && body.length > 0) {
-          // In scripts and stylesheets the marker is a base path that Next
-          // concatenates, never a link; see rewriteUrls.
+        const text = TEXTUAL.test(type) && body.length > 0 ? body.toString("utf8") : null;
+        // Only a body that carries the marker differs between serving modes. Any
+        // other asset is byte-identical, so it keeps Next's immutable caching.
+        const rewritten = text !== null && text.includes(INGRESS_MARKER);
+        if (rewritten) {
           const bareRoot = !/^(?:application|text)\/(?:javascript|css)/i.test(type);
-          body = Buffer.from(rewriteUrls(body.toString("utf8"), prefix, bareRoot), "utf8");
+          body = Buffer.from(rewriteUrls(text, prefix, bareRoot), "utf8");
+          // The same URL now serves different bytes depending on the ingress
+          // prefix, so a shared or long-lived cache entry is wrong in the other
+          // mode — and stays wrong across a version bump, because Next names
+          // chunks after their on-disk content, not after what we rewrite.
+          out["cache-control"] = "private, max-age=0, must-revalidate";
+          out.vary = appendVary(out.vary, "X-Ingress-Path");
         }
         // Redirects have to move with the app: a bare "/login" from Next would
         // send the ingress iframe to the Home Assistant homepage. `refresh` is

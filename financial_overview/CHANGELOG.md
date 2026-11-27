@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.4
+
+- **The browser could keep serving an old, wrong build of the app.** Chunks are
+  sent with `cache-control: public, max-age=31536000, immutable`, but the proxy
+  rewrites their contents per serving mode, so one URL can hold different bytes
+  for the Home Assistant panel and for direct access — and Next names chunks
+  after their on-disk content, which a rewrite does not change. A browser that
+  had cached the chunk before 0.7.3 kept the `basePath = "/"` version for a year,
+  which is why tab links still went to `http://portfolio` after updating.
+  Rewritten responses now carry `cache-control: private, max-age=0,
+  must-revalidate` and `Vary: X-Ingress-Path`; assets the proxy does not touch
+  keep their immutable caching.
+
 ## 0.7.3
 
 - **Tab links work again.** Clicking "Portfolio" went to `http://portfolio`.

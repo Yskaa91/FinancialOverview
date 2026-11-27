@@ -85,6 +85,12 @@ add-on options (/data/options.json)
   (`href="/__ingress"` → `href="/"`), but in scripts it is Next's `basePath`
   constant, which is concatenated with paths — there it has to become the empty
   string, because `/` yields `//portfolio` and the browser reads that as a host.
+- **Rewritten responses may not be cached as immutable.** The same chunk URL
+  carries different bytes per serving mode, and Next names chunks after their
+  on-disk content, so a rewrite does not change the name. Everything the proxy
+  actually rewrote is therefore sent `private, max-age=0, must-revalidate` with
+  `Vary: X-Ingress-Path`; assets it did not touch keep Next's immutable caching.
+  Skipping this left browsers pinned to a stale `basePath` for a year.
 - **The proxy is the only process on the published port.** It starts `next start`
   on loopback (`APP_PORT`, default 3001), waits for it to accept connections, and
   exits when it does, so a crashed server restarts the container instead of
