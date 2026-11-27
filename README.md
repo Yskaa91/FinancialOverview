@@ -71,12 +71,34 @@ npm run dev                    # http://localhost:3000
 Bump `version` in `financial_overview/config.yaml` and push to `main`.
 `.github/workflows/build-addon-image.yml` builds both architectures and pushes
 `ghcr.io/yskaa91/financial-overview-<arch>:<version>`; the Supervisor pulls that
-tag once the add-on store sees the new version. Two things must hold:
+tag once the add-on store sees the new version. The workflow authenticates with
+the repository's own `GITHUB_TOKEN` (`packages: write`), so no secret is stored in
+the repo and neither the code nor the image has to be public.
 
-- the workflow can write packages (`packages: write`, which it declares);
-- the GHCR package is **public** — GitHub → your profile → Packages → the
-  package → *Package settings* → *Change visibility*. A private package makes the
-  update fail with an authentication error, and nothing in the repo can flip it.
+### Private repository and private images
+
+Both can stay private; the Supervisor just has to be able to read them. It never
+holds a GitHub session, so it needs credentials for each side, entered once on the
+Home Assistant host:
+
+1. **Registry** — Settings → Apps → Install app → ⋮ → *Registries* → *Add new
+   registry*: registry `ghcr.io`, username = your GitHub username, password = a
+   token with **read:packages**. Stored in the Supervisor's `/data/docker.json`.
+   Use a dedicated token so it can be revoked without touching anything else.
+2. **Add-on store** — the repository URL can carry credentials:
+   `https://<user>:<token>@github.com/Yskaa91/FinancialOverview`, with a token
+   that has **Contents: read** on this repository. Home Assistant stores that URL
+   as plain text, so it is also a token to keep narrow.
+
+Keeping a token on the Home Assistant host is the price of private images. The
+alternatives are a public store repository that contains only `config.yaml` and
+`repository.yaml` and points at the private image, or a registry on your own
+network (`registry:2` behind basic auth), which keeps the image inside the house
+but needs an always-on host.
+
+Private repositories spend GitHub Actions minutes, and an emulated arm64 build is
+the expensive part. Drop `aarch64` from the workflow matrix if nothing here runs
+on a Pi.
 
 ## How it decides a category
 

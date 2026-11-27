@@ -103,7 +103,10 @@ add-on options (/data/options.json)
   builds both architectures with buildx/QEMU and pushes `<arch>-<version>` and
   `<arch>-latest`; the version it tags comes from `config.yaml`, and so does the
   image name, so the two cannot drift. The Dockerfile stays buildable on its own
-  for a local build, which is what the workflow uses.
+  for a local build, which is what the workflow uses. The package is private, not
+  public: the Supervisor is given a `ghcr.io` credential (Settings → Apps → ⋮ →
+  Registries) and the store URL carries a read-only token, so nothing about the
+  app is world-readable.
 - **The add-on labels are baked into the image.** `io.hass.version`,
   `io.hass.type` and `io.hass.arch` are normally passed with
   `docker build --label` by the Supervisor; a pulled image has to declare them
