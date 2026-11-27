@@ -38,10 +38,11 @@ export function upstreamPath(prefix, url) {
   let path = url ?? "/";
   if (prefix && path.startsWith(prefix)) path = path.slice(prefix.length);
   if (!path.startsWith("/")) path = `/${path}`;
-  // No trailing slash on the root: Next's canonical form for a base path is
-  // "/__ingress", and asking for "/__ingress/" earns a 308 back to it, which the
-  // rewrite below would turn into a redirect loop for direct access.
-  return path === "/" ? INGRESS_MARKER : `${INGRESS_MARKER}${path}`;
+  // No trailing slash on the root, with or without a query: Next's canonical form
+  // for a base path is "/__ingress", and asking for "/__ingress/" earns a 308 back
+  // to it — which the rewrite below turns into a redirect loop for direct access.
+  // A dashboard link such as "/?p=2026-09" is exactly that case.
+  return path.startsWith("/?") ? `${INGRESS_MARKER}${path.slice(1)}` : path === "/" ? INGRESS_MARKER : `${INGRESS_MARKER}${path}`;
 }
 
 /**
@@ -93,7 +94,10 @@ export function appendVary(value, name) {
 export function rewriteLocation(value, prefix) {
   const rewritten = rewriteUrls(value, prefix);
   if (!prefix) return rewritten;
-  if (rewritten === prefix || rewritten.startsWith(`${prefix}/`)) return rewritten;
+  // Already under the prefix — including the root itself, which arrives as
+  // "<prefix>?p=…" and would otherwise get the prefix a second time.
+  if (rewritten === prefix) return rewritten;
+  if (rewritten.startsWith(prefix) && /^[/?#]/.test(rewritten.slice(prefix.length))) return rewritten;
   return rewritten.startsWith("/") ? `${prefix}${rewritten}` : rewritten;
 }
 

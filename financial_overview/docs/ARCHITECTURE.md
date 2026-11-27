@@ -80,7 +80,11 @@ add-on options (/data/options.json)
   and the refresh header. The Supervisor strips the prefix before the request
   arrives and sends it as `X-Ingress-Path`; the proxy also accepts a prefix that
   was not stripped. A direct request on port 3000 has no prefix, and the same
-  swap removes the marker, so LAN access keeps working at `/`. The marker means
+  swap removes the marker, so LAN access keeps working at `/`. The root is
+  forwarded without a trailing slash even when it carries a query
+  (`/?p=2026-09` → `/__ingress?p=2026-09`): Next answers a slash there with a 308
+  to the slashless form, which the rewrite would turn into a redirect to itself,
+  and the dashboard's period links are exactly that shape. The marker means
   two different things and is replaced accordingly: in markup it is the app root
   (`href="/__ingress"` → `href="/"`), but in scripts it is Next's `basePath`
   constant, which is concatenated with paths — there it has to become the empty

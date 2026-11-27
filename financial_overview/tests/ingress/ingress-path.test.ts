@@ -30,6 +30,13 @@ describe("upstreamPath", () => {
     expect(upstreamPath(PREFIX, "/")).toBe(INGRESS_MARKER);
   });
 
+  // A dashboard period link is "/?p=2026-09&c=off". With a trailing slash Next
+  // answers 308 back to the slashless root, which the rewrite turns into a loop.
+  it("keeps a root query string without adding a slash", () => {
+    expect(upstreamPath("", "/?p=2026-09&c=off")).toBe(`${INGRESS_MARKER}?p=2026-09&c=off`);
+    expect(upstreamPath(PREFIX, "/?p=2026-09&c=off")).toBe(`${INGRESS_MARKER}?p=2026-09&c=off`);
+  });
+
   it("keeps the query string", () => {
     expect(upstreamPath("", "/transactions?review=1")).toBe(`${INGRESS_MARKER}/transactions?review=1`);
   });
@@ -115,6 +122,12 @@ describe("rewriteLocation", () => {
 
   it("does not touch redirects for direct access", () => {
     expect(rewriteLocation(`${INGRESS_MARKER}/login`, "")).toBe("/login");
+    expect(rewriteLocation(`${INGRESS_MARKER}?p=2026-09`, "")).toBe("/?p=2026-09");
+  });
+
+  // Root redirects carry a query and used to get the prefix twice.
+  it("prefixes a root redirect with a query exactly once", () => {
+    expect(rewriteLocation(`${INGRESS_MARKER}?p=2026-09&c=off`, PREFIX)).toBe(`${PREFIX}?p=2026-09&c=off`);
   });
 });
 

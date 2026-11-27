@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.6
+
+- **The dashboard period buttons work again.** Every link there is a root URL
+  with a query (`/?p=2026-09&c=off`), and the proxy turned that into
+  `/__ingress/?p=…` on the way to the app. Next answers a trailing slash under its
+  base path with a 308 back to the slashless form, and the rewrite turned that
+  into a redirect to the same URL — so pressing "previous month" did nothing.
+  Under the Home Assistant panel the same redirect also carried the prefix twice.
+  Both are fixed, with tests on the two shapes.
+
 ## 0.7.5
 
 - **Card rows stop pretending to be unmatched.** A card is collected once a month,
