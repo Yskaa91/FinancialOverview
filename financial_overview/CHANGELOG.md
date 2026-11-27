@@ -2,6 +2,15 @@
 
 ## 0.7.2
 
+- **The add-on opens inside Home Assistant.** It used to publish port 3000 and
+  point `webui` at it, so the button only worked if you exposed the port. It now
+  runs under ingress: the sidebar entry opens the app in a Home Assistant panel,
+  with nothing published. Next.js bakes its asset paths at build time and the
+  ingress path is only known at runtime, so the build uses a placeholder
+  (`basePath: /__ingress`) that a small proxy swaps for the real prefix on every
+  response — links, chunks, redirects and the session cookie included. Direct
+  access on port 3000 still works, and framing is now same-origin instead of
+  refused, which is what the iframe needed.
 - **Add-on updates are a download now, not a build.** The Supervisor had no
   `image:` to pull, so every version was compiled on the Home Assistant host:
   `npm ci`, `prisma generate`, `next build` and `npm prune` on a machine that is

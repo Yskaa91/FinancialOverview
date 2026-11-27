@@ -42,4 +42,7 @@ echo "[financial_overview] login: $([ -n "${ACCESS_PASSWORD:-}" ] && echo requir
 # `npx` would still spend a second resolving before it ran them.
 ./node_modules/.bin/prisma migrate deploy
 
-exec ./node_modules/.bin/next start --hostname 0.0.0.0 --port 3000
+# The proxy owns the published port. It serves both Home Assistant's ingress
+# iframe (which needs every URL rewritten under /api/hassio_ingress/<token>/)
+# and direct access on the LAN, and it starts the Next server on a loopback port.
+exec node scripts/ingress-proxy.mjs

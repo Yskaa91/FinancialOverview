@@ -75,6 +75,9 @@ COPY --from=builder /app/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/scripts/container-env.mjs ./scripts/container-env.mjs
+# next.config.mjs imports the first at start, and run.sh execs the second.
+COPY --from=builder /app/scripts/ingress-path.mjs ./scripts/ingress-path.mjs
+COPY --from=builder /app/scripts/ingress-proxy.mjs ./scripts/ingress-proxy.mjs
 COPY run.sh /run.sh
 RUN chmod +x /run.sh && mkdir -p /data
 

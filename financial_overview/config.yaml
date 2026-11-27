@@ -19,8 +19,16 @@ ports:
   3000/tcp: 3000
 ports_description:
   3000/tcp: Web interface
-webui: http://[HOST]:[PORT:3000]/
 watchdog: http://[HOST]:[PORT:3000]/
+# Opened inside Home Assistant: the ingress iframe under /api/hassio_ingress/,
+# reached on the internal network, so nothing has to be exposed. `panel_admin:
+# false` lets other household accounts open it; the app still has its own
+# password. `ports` stays, so the app is also reachable directly on the LAN.
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:finance
+panel_title: Financial Overview
+panel_admin: false
 options:
   access_password: ""
   ai_provider: none

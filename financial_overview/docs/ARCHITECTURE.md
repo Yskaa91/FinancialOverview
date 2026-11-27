@@ -70,11 +70,30 @@ add-on options (/data/options.json)
   rebuilds and `backup: cold` snapshots. The old local `dev.db` is ignored.
 - **Migrations at start.** `prisma migrate deploy` runs on every boot; with no
   pending migrations it is a no-op, so a rebuild cannot lose or duplicate data.
-- **No ingress.** Home Assistant ingress forwards at a per-session path prefix,
-  and a Next.js app cannot rebase its asset URLs at runtime (`basePath` is baked
-  at build time), so the add-on publishes port 3000 and uses `webui` instead: the
-  sidebar entry opens the UI in a new tab. This is a deliberate trade of sidebar
-  embed for a working app.
+- **Ingress, so the app opens inside Home Assistant.** The add-on is served in an
+  iframe at `https://<home-assistant>/api/hassio_ingress/<token>/`, which means
+  every URL the app emits has to live under a prefix that does not exist at build
+  time. Next.js bakes `basePath` into the client bundles, so the build fixes
+  `basePath: /__ingress` (`scripts/ingress-path.mjs`) and `scripts/ingress-proxy.mjs`
+  replaces that marker with the real prefix on the way out — assets, chunk URLs,
+  `<a href>`, the flight data that repeats those hrefs after hydration, redirects
+  and the refresh header. The Supervisor strips the prefix before the request
+  arrives and sends it as `X-Ingress-Path`; the proxy also accepts a prefix that
+  was not stripped. A direct request on port 3000 has no prefix, and the same
+  swap removes the marker, so LAN access keeps working at `/`.
+- **The proxy is the only process on the published port.** It starts `next start`
+  on loopback (`APP_PORT`, default 3001), waits for it to accept connections, and
+  exits when it does, so a crashed server restarts the container instead of
+  answering 502. It forwards the client's `Host` and sets `X-Forwarded-Host`:
+  Next compares `Origin` against `Host` for every Server Action, and the browser's
+  origin is Home Assistant.
+- **Framing is same-origin.** `X-Frame-Options: SAMEORIGIN` and
+  `frame-ancestors 'self'`: the ingress iframe is served from the Home Assistant
+  origin, so it is same-origin, while a foreign page still cannot frame a UI with
+  destructive buttons one click away.
+- **The session cookie is scoped to the ingress path.** The cookie's origin is
+  Home Assistant, so a `Path=/` cookie would ride along on every Home Assistant
+  request; the proxy rewrites it to the prefix.
 - **The image is prebuilt, so updating is a pull.** `config.yaml` carries
   `image: ghcr.io/yskaa91/financial-overview-{arch}`, which makes the Supervisor
   fetch `ghcr.io/yskaa91/financial-overview-amd64:<version>` instead of running

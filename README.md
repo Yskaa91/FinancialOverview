@@ -11,7 +11,9 @@ development. Either way the data is one SQLite file on your own machine.
 
 1. Settings → Add-ons → Add-on store → ⋮ → **Repositories**
 2. Add `https://github.com/Yskaa91/FinancialOverview`
-3. Install **Financial Overview**, start it, **Open Web UI**
+3. Install **Financial Overview**, start it, then open it from the sidebar — it
+   runs under Home Assistant ingress, in a panel of its own, so nothing has to be
+   exposed. Port 3000 is still published for direct LAN access.
 
 Updates pull a ready-made image from GitHub Container Registry, so they take
 about as long as any other add-on update. Versions up to 0.6.x had no image to
