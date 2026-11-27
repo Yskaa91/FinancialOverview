@@ -66,6 +66,13 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     DATABASE_URL="file:/data/financial.db"
 
+# Prisma's CLI (run.sh migrates on start) finds its libssl by shelling out to
+# `openssl version`. Without the binary it cannot detect the version and falls
+# back to "openssl-1.1.x" on every start, with a warning on each line of the log.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next

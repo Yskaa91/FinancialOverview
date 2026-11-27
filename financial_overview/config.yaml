@@ -1,5 +1,5 @@
 name: Financial Overview
-version: "0.8.1"
+version: "0.8.2"
 slug: financial_overview
 description: Track wealth, income and expenses from ASN, PayPal and ICS statements
 url: https://github.com/Yskaa91/FinancialOverview
@@ -18,7 +18,10 @@ ports:
   3000/tcp: 3000
 ports_description:
   3000/tcp: Web interface
-watchdog: http://[HOST]:[PORT:3000]/
+# Not "/": that answers 307 to /login when a password is set, and the watchdog
+# only accepts 200/302, so it restarted the app every two minutes. /api/health is
+# unauthenticated and answers 200.
+watchdog: http://[HOST]:[PORT:3000]/api/health
 # Opened inside Home Assistant: the ingress iframe under /api/hassio_ingress/,
 # reached on the internal network, so nothing has to be exposed. `panel_admin:
 # false` lets other household accounts open it; the app still has its own

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.2
+
+- **The app stopped restarting itself every two minutes.** The Supervisor's
+  watchdog polls one URL and counts only 200 and 302 as alive; the add-on told it
+  to poll `/`, which is a 307 to `/login` as soon as an access password is set, so
+  a healthy app was declared dead and restarted on a timer. It now polls
+  `/api/health`, an unauthenticated route that answers 200 and touches nothing.
+- **A stop is now a clean stop.** The proxy trapped SIGTERM but never exited, so
+  Docker killed it and the Supervisor reported exit code 143. It forwards the
+  signal, closes the port and exits 0.
+- **The Prisma OpenSSL warning is gone.** The runtime image has the `openssl`
+  binary, so Prisma detects libssl 3 instead of falling back to 1.1.x twice on
+  every start.
+
 ## 0.8.1
 
 - **The dashboard puts the categories first, and gives them room.** The four cards

@@ -140,18 +140,31 @@ const app = spawn(
   { stdio: "inherit" },
 );
 
+let shuttingDown = false;
+let server = null;
+
 // One process to supervise: if the app dies, the container should restart, not
-// keep serving 502s.
-app.on("exit", (code) => process.exit(code ?? 1));
+// keep serving 502s. A stop we asked for is not a crash, so it exits 0 — the
+// Supervisor warns about (and blocks clean stops on) any other code.
+app.on("exit", (code) => process.exit(shuttingDown ? 0 : (code ?? 1)));
+
+// Trapping SIGTERM is not enough: a handler that never exits leaves this process
+// as PID 1 until Docker kills it, which the Supervisor reports as "did not handle
+// SIGTERM ... (exit code 143)". So forward the signal, then exit — and never wait
+// longer than Docker's 10 s grace period.
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    server?.close();
     app.kill(signal);
+    setTimeout(() => process.exit(0), 5000).unref();
   });
 }
 
 await waitForApp();
 
-const server = http.createServer(handle);
+server = http.createServer(handle);
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[ingress-proxy] listening on 0.0.0.0:${PORT}, app on ${APP_HOST}:${APP_PORT}`);
 });
