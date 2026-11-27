@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.5
+
+- **Card rows stop pretending to be unmatched.** A card is collected once a month,
+  so its individual purchases can never pair with anything — the bank holds one
+  debit for the whole statement. Every ICS row therefore sat in the
+  reconciliation list as if something were wrong, which hid the rows that really
+  do need attention. Card rows are now left out of that list, and the statement
+  itself is checked: `/reconcile` shows, per card statement, the charges it adds
+  up to and the bank debit that paid it, or says that no debit was found. On a real
+  statement the two agree to the cent (−377,45, four days apart).
+
 ## 0.7.4
 
 - **The browser could keep serving an old, wrong build of the app.** Chunks are

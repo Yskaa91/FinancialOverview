@@ -143,10 +143,11 @@ export default async function ReconcilePage({
           )}
         </Card>
 
-        <Card title={`Settlement rows without a partner — ${reconciliation.unmatched.length}`}>
+        <Card title={`Rows waiting for a partner — ${reconciliation.unmatched.length}`}>
           <p className="mb-2 text-xs text-muted">
-            A bank row that names PayPal, the card company or another of your accounts but has no
-            counterpart. Either that statement was never imported, or the pairing could not decide.
+            A bank or wallet row that names another of your accounts but has no counterpart. Either
+            that statement was never imported, or the leg falls outside the imported period. Card
+            purchases are not listed here — a card settles as one monthly debit, checked below.
           </p>
           {reconciliation.unmatched.length === 0 ? (
             <EmptyState title="Everything is accounted for">
@@ -203,6 +204,63 @@ export default async function ReconcilePage({
                             </button>
                           </form>
                         )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        <Card title={`Card statements — ${reconciliation.cardStatements.length}`}>
+          <p className="mb-2 text-xs text-muted">
+            A card is collected once a month: the bank sees one direct debit, the card sees the
+            purchases behind it. Individual card rows therefore never have a partner — the total of
+            one statement is what settles, and it has to equal the debit to the cent.
+          </p>
+          {reconciliation.cardStatements.length === 0 ? (
+            <EmptyState title="No card statements">Import a card statement to check it against the bank.</EmptyState>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table w-full text-sm">
+                <thead className="text-[11px] uppercase tracking-wide text-muted">
+                  <tr className="border-b border-border text-left">
+                    <th className="py-2 pr-3 font-medium">Card</th>
+                    <th className="py-2 pr-3 font-medium">Statement period</th>
+                    <th className="py-2 pl-3 text-right font-medium">Charges</th>
+                    <th className="py-2 pl-3 font-medium">Collected by</th>
+                    <th className="py-2 pl-3 text-right font-medium">Bank debit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reconciliation.cardStatements.map((statement) => (
+                    <tr key={statement.statementId} className="border-b border-border/60 last:border-0">
+                      <td className="py-2 pr-3">{statement.accountName}</td>
+                      <td className="whitespace-nowrap py-2 pr-3 text-xs text-muted">
+                        {statement.periodStart && statement.periodEnd
+                          ? `${formatDay(statement.periodStart)} – ${formatDay(statement.periodEnd)}`
+                          : "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular">
+                        {formatCents(statement.chargesCents)}
+                      </td>
+                      <td className="py-2 pl-3 text-xs">
+                        {statement.paidBy ? (
+                          <span className="text-muted">
+                            {formatDay(new Date(`${statement.paidBy.bookedAt}T00:00:00.000Z`))} ·{" "}
+                            {statement.paidBy.accountName}
+                          </span>
+                        ) : (
+                          <span className="text-muted">
+                            {statement.creditedCents > 0 && statement.chargesCents === 0
+                              ? "nothing charged"
+                              : "no debit found"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap py-2 pl-3 text-right tabular">
+                        {statement.paidBy ? formatCents(statement.paidBy.amountCents) : "—"}
                       </td>
                     </tr>
                   ))}

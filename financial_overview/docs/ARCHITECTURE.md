@@ -395,8 +395,17 @@ reports and the transactions list read excludeFromSpending (lib/queries/filters.
   changes nothing. Importing a statement runs it over that statement's period
   ±14 days, in both directions, so import order does not matter.
 - **What it finds.** Rows that name another account and still have no partner are
-  listed on `/reconcile` — usually a statement that was never imported. That page
-  also shows per-account coverage, which is the same question asked the other way.
+  listed on `/reconcile` — usually a statement that was never imported, or a leg
+  that falls outside the imported period. That page also shows per-account
+  coverage, which is the same question asked the other way.
+- **A card is not reconciled row by row.** A card is collected once a month: the
+  bank books one direct debit, the card statement holds dozens of purchases, so no
+  single card row ever has a partner and listing them all buried the rows that
+  matter. Card rows are therefore left out of that list and checked per statement
+  as a total (`lib/transfers/card-settlement.ts`, pure): the sum of a statement's
+  charges has to equal one bank debit of the same account, booked between three
+  days before the statement end and twenty-one days after it. Measured on a real
+  pair: charges −377,45 and the ASN debit of −377,45 four days later.
 
 ## 6. Categorisation
 

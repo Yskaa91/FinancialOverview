@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { daysAgo } from "@/lib/dates";
 import { textNamesHint, type PairingAccount } from "@/lib/transfers/pairing";
 import { pairingAccount } from "@/lib/transfers/link";
+import { cardSettlements, type BankRowInput, type CardSettlement } from "@/lib/transfers/card-settlement";
 
 /** Looking back this far covers a year of statements without scanning everything. */
 const LOOKBACK_DAYS = 400;
@@ -58,6 +59,11 @@ export type Reconciliation = {
   pairs: ReconPair[];
   pairsTotal: number;
   unmatched: ReconUnmatched[];
+  /**
+   * Card statements, checked as totals. A card is collected once a month, so its
+   * individual rows never have a partner; the statement sum is what settles.
+   */
+  cardStatements: CardSettlement[];
   coverage: ReconCoverage[];
 };
 
@@ -108,7 +114,14 @@ export async function loadReconciliation(): Promise<Reconciliation> {
       },
     }),
     prisma.statement.findMany({
-      select: { accountId: true, importedAt: true, periodStart: true, periodEnd: true },
+      select: {
+        id: true,
+        accountId: true,
+        importedAt: true,
+        periodStart: true,
+        periodEnd: true,
+        transactions: { select: { amountCents: true } },
+      },
       orderBy: { importedAt: "desc" },
     }),
   ]);
@@ -125,6 +138,11 @@ export async function loadReconciliation(): Promise<Reconciliation> {
   const accountById = new Map(accounts.map((account) => [account.id, account]));
   const unmatched: ReconUnmatched[] = [];
   for (const row of unlinked) {
+    // A card's own rows are never expected to find a partner row: the card is
+    // collected as one monthly debit. They are checked per statement below, so
+    // listing them here only buries the rows that do need attention.
+    if (pairingAccounts.get(row.accountId)?.settlesMonthly) continue;
+
     const text = [row.description, row.counterparty, row.counterpartyIban].filter(Boolean).join(" ");
     const namesAnother = [...pairingAccounts.entries()].some(
       ([id, account]) => id !== row.accountId && account.hints.some((hint) => textNamesHint(text, hint)),
@@ -153,7 +171,50 @@ export async function loadReconciliation(): Promise<Reconciliation> {
     };
   });
 
-  return { pairs, pairsTotal, unmatched: unmatched.slice(0, 60), coverage };
+  const cardStatements = cardSettlements({
+    statements: statements
+      .filter((statement) => pairingAccounts.get(statement.accountId)?.settlesMonthly)
+      .map((statement) => ({
+        accountId: statement.accountId,
+        accountName: accountById.get(statement.accountId)?.name ?? statement.accountId,
+        statementId: statement.id,
+        periodStart: statement.periodStart?.toISOString().slice(0, 10) ?? null,
+        periodEnd: statement.periodEnd?.toISOString().slice(0, 10) ?? null,
+        amounts: statement.transactions.map((transaction) => transaction.amountCents),
+      })),
+    bankRows: [
+      ...unlinked.map((row) => toBankRow(row, row.accountId, accountById)),
+      // A bill that was linked by hand must not look unpaid.
+      ...links.flatMap((link) =>
+        link.transactions.map((transaction) => toBankRow(transaction, transaction.account.id, accountById)),
+      ),
+    ],
+  });
+
+  return { pairs, pairsTotal, unmatched: unmatched.slice(0, 60), cardStatements, coverage };
+}
+
+/** The bank side of a card collection, in the shape the settlement check wants. */
+function toBankRow(
+  row: {
+    id: string;
+    bookedAt: Date;
+    amountCents: number;
+    description: string;
+    merchant: string | null;
+    counterparty: string | null;
+  },
+  accountId: string,
+  accounts: Map<string, { name: string }>,
+): BankRowInput {
+  return {
+    id: row.id,
+    accountId,
+    accountName: accounts.get(accountId)?.name ?? accountId,
+    bookedAt: row.bookedAt.toISOString().slice(0, 10),
+    amountCents: row.amountCents,
+    label: row.merchant ?? row.counterparty ?? row.description,
+  };
 }
 
 function toReconRow(row: {
